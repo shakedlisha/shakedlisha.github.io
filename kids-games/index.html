@@ -215,6 +215,60 @@ const PUBLIC_URL='https://shakedlisha.github.io/kids-games/';
 const GH={owner:'shakedlisha',repo:'shakedlisha.github.io',path:'kids-games/games.json',branch:'master'};
 const GH_API=`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
 let MODE='web',ghToken=null,ghSha=null;
+/* ---------------- open editing without login: games are kept on this computer, shared by link ---------------- */
+let PUBLIC_IDS=new Set(),HIDDEN=[],lsTimer=null;
+function packGames(arr){
+  const images={},seen=new Map();
+  const out=structuredClone(arr);
+  out.forEach(g=>(g.pages||[]).forEach(p=>{if(p.img&&p.img.startsWith('data:')){let k=seen.get(p.img);if(k==null){k=String(seen.size);seen.set(p.img,k);images[k]=p.img}p.img='img:'+k}}));
+  return {games:out,images};
+}
+function unpackGames(obj){
+  const im=(obj&&obj.images)||{};const arr=(obj&&Array.isArray(obj.games))?obj.games:[];
+  arr.forEach(g=>(g.pages||[]).forEach(p=>{if(p.img&&p.img.startsWith('img:'))p.img=im[p.img.slice(4)]||''}));
+  return arr;
+}
+function loadLocal(){
+  let L=null;try{L=JSON.parse(localStorage.getItem('kg-local')||'null')}catch(e){}
+  if(!L)return;
+  HIDDEN=Array.isArray(L.hidden)?L.hidden:[];
+  for(const id of HIDDEN){const i=games.findIndex(x=>x.id===id);if(i>=0)games.splice(i,1)}
+  const mine=unpackGames(L);
+  for(let k=mine.length-1;k>=0;k--){const g=mine[k];g._local=true;const i=games.findIndex(x=>x.id===g.id);if(i>=0)games.splice(i,1);games.unshift(g)}
+}
+function localSave(){
+  clearTimeout(lsTimer);lsTimer=null;
+  try{localStorage.setItem('kg-local',JSON.stringify({...packGames(games.filter(g=>g._local)),hidden:HIDDEN}));flash('נשמר במחשב הזה ✓')}
+  catch(e){flash('אין מספיק מקום לשמור במחשב הזה. מחקו משחקים ישנים או הסירו תמונות.',5000)}
+}
+function flash(msg,ms){const b=$('#saveBar');b.hidden=false;b.innerHTML=`<span role="status">${esc(msg)}</span>`;clearTimeout(flash.t);flash.t=setTimeout(()=>{b.hidden=true},ms||1600)}
+addEventListener('pagehide',()=>{if(lsTimer)localSave()});
+/* a share link carries the whole game: #g=<compressed game> */
+const b64url=bytes=>{let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const unb64url=str=>{const s=atob(str.replace(/-/g,'+').replace(/_/g,'/'));const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b};
+async function pipeBytes(bytes,stream){const r=new Response(new Blob([bytes]).stream().pipeThrough(stream));return new Uint8Array(await r.arrayBuffer())}
+function smallImage(url){return new Promise(res=>{const im=new Image();im.onload=()=>{const s=Math.min(1,420/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.68))};im.onerror=()=>res('');im.src=url})}
+async function shareLink(g){
+  const copy=structuredClone(g);delete copy._local;
+  const cache=new Map();
+  for(const p of copy.pages||[]){if(p.img&&p.img.startsWith('data:')){if(!cache.has(p.img))cache.set(p.img,await smallImage(p.img));p.img=cache.get(p.img)}}
+  const bytes=new TextEncoder().encode(JSON.stringify(packGames([copy])));
+  if(window.CompressionStream){try{return PUBLIC_URL+'#g=z'+b64url(await pipeBytes(bytes,new CompressionStream('deflate-raw')))}catch(e){}}
+  return PUBLIC_URL+'#g=r'+b64url(bytes);
+}
+async function readShared(hash){
+  const code=hash.slice(3),kind=code[0];let bytes=unb64url(code.slice(1));
+  if(kind==='z')bytes=await pipeBytes(bytes,new DecompressionStream('deflate-raw'));
+  const g=unpackGames(JSON.parse(new TextDecoder().decode(bytes)))[0];
+  if(!g||!Array.isArray(g.pages))throw new Error('bad');
+  if(!/^[A-Za-z0-9]+$/.test(g.id||''))g.id=newId();
+  g._local=true;
+  const i=games.findIndex(x=>x.id===g.id);if(i>=0)games.splice(i,1);games.unshift(g);
+  HIDDEN=HIDDEN.filter(x=>x!==g.id);localSave();
+  return g.id;
+}
+
 function packData(){
   const out=structuredClone(DATA),images={},seen=new Map();
   out.games.forEach(g=>(g.pages||[]).forEach(p=>{if(p.img&&p.img.startsWith('data:')){let k=seen.get(p.img);if(k==null){k=String(seen.size);seen.set(p.img,k);images[k]=p.img}p.img='img:'+k}}));
@@ -302,8 +356,12 @@ async function boot(){
     MODE='web';
     try{const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),5000);
       const r=await fetch('games.json?t='+Date.now(),{cache:'no-store',signal:ctl.signal});clearTimeout(t);if(r.ok)unpackData(await r.json())}catch(e){}
-    try{ghToken=localStorage.getItem('kg-token')||sessionStorage.getItem('kg-token')}catch(e){}
-    if(ghToken){const res=await ghLoad().catch(()=>'net');if(res==='ok')canEdit=true;else{if(res==='auth'){try{localStorage.removeItem('kg-token');sessionStorage.removeItem('kg-token')}catch(e){}}ghToken=null}}
+    PUBLIC_IDS=new Set(games.map(g=>g.id));
+    loadLocal();canEdit=true;
+    if(location.hash.startsWith('#g=')){
+      try{const id=await readShared(location.hash);history.replaceState(null,'','#play-'+id)}
+      catch(e){history.replaceState(null,'',location.pathname);route();flash('הקישור למשחק לא שלם. בקשו את הקישור שוב.',5000);return}
+    }
     route();return;
   }
   MODE='claude';
@@ -315,9 +373,13 @@ async function boot(){
   if(view==='library')renderLibrary();else if(view==='edit'&&!canEdit)go('');else if(view==='edit')renderEditor();
   if(location.hash.startsWith('#edit-')&&view!=='edit')route();
 }
-function markDirty(){dirty=true;if(E&&E.game)E.game.updatedAt=Date.now();showSaveBar()}
+function markDirty(){
+  if(E&&E.game)E.game.updatedAt=Date.now();
+  if(MODE==='web'){if(E&&E.game)E.game._local=true;clearTimeout(lsTimer);lsTimer=setTimeout(localSave,500);return}
+  dirty=true;showSaveBar()}
 const touch=markDirty;
 function showSaveBar(msg){
+  if(MODE==='web'){if(msg)flash(msg,4000);return}
   const b=$('#saveBar');if(!canEdit||(!dirty&&!msg)){b.hidden=true;return}
   b.hidden=false;b.innerHTML=`<span role="status">${esc(msg||'יש שינויים שעוד לא נשמרו')}</span>${dirty?'<button class="btn sun" id="saveNow">💾 שמירה</button>':''}`;
   const s=$('#saveNow');if(s)s.onclick=saveAll;
@@ -342,6 +404,7 @@ addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='
 let view='library';
 function go(h){if(location.hash!==h)location.hash=h;else route();if(!h)history.replaceState(null,'',location.pathname+location.search)}
 function route(){
+  if(MODE==='web'&&location.hash.startsWith('#g=')){readShared(location.hash).then(id=>{history.replaceState(null,'','#play-'+id);route()},()=>{history.replaceState(null,'',location.pathname);flash('הקישור למשחק לא שלם. בקשו את הקישור שוב.',5000);route()});return}
   const h=location.hash.slice(1);const m=h.match(/^(play|edit)-([A-Za-z0-9]+)$/);
   const g=m&&games.find(x=>x.id===m[2]);
   if(g&&m[1]==='play')return startPlay(g,'library');
@@ -356,7 +419,7 @@ const gameLink=id=>PUBLIC_URL+'#play-'+id;
 function renderLibrary(){
   view='library';
   const head=`<div class="libhead"><div><h1>סטודיו המשחקים</h1>
-    <p>${canEdit?'כאן יוצרים משחקים לכיתה: תמונה, שאלה ותשובות, או מילה שמסדרים מאותיות. אחרי שינוי לוחצים "שמירה"'+(MODE==='web'?', והאתר הציבורי מתעדכן תוך כדקה.':'.'):'בחרו משחק ולחצו "משחקים".'}</p>
+    <p>${MODE==='web'?'כאן יוצרים משחקים לכיתה: תמונה, שאלה ותשובות, או מילה שמסדרים מאותיות. המשחקים נשמרים במחשב שבו יצרתם אותם. כדי לשתף משחק לוחצים "🔗 קישור" ושולחים את הקישור.':canEdit?'כאן יוצרים משחקים לכיתה: תמונה, שאלה ותשובות, או מילה שמסדרים מאותיות. אחרי שינוי לוחצים "שמירה".':'בחרו משחק ולחצו "משחקים".'}</p>
     ${MODE==='claude'&&canEdit?`<p class="note" style="margin-top:8px">🌐 הגרסה הציבורית נמצאת ב־<a href="${PUBLIC_URL}" target="_blank" rel="noopener">${PUBLIC_URL}</a>, ואפשר ליצור ולערוך משחקים גם שם. המשחקים כאן נפרדים מהמשחקים באתר.</p>`:''}</div>
     ${canEdit?'<button class="btn primary" id="newGame">＋ משחק חדש</button>':''}</div>`;
   let body;
@@ -366,11 +429,11 @@ function renderLibrary(){
   else body=`<div class="grid">${games.map(g=>{
       const first=(g.pages||[]).find(p=>p.img);const n=(g.pages||[]).length;
       return `<article class="gcard"><div class="thumb">${first?`<img src="${esc(imgSrc(first.img))}" alt="">`:'🎲'}</div>
-        <div class="body"><h3>${esc(g.title||'משחק בלי שם')}</h3><div class="meta">${n} ${n===1?'עמוד':'עמודים'}</div>
+        <div class="body"><h3>${esc(g.title||'משחק בלי שם')}</h3><div class="meta">${n} ${n===1?'עמוד':'עמודים'}${MODE==='web'&&g._local?' · <span class="badge">שמור במחשב הזה</span>':''}</div>
         <div class="acts"><button class="btn sun" data-play="${g.id}">▶ משחקים</button>
         ${canEdit?`<button class="btn" data-edit="${g.id}">✏️ עריכה</button><button class="btn" data-link="${g.id}">🔗 קישור</button><button class="btn" data-dup="${g.id}">⧉ שכפול</button><button class="btn danger" data-del="${g.id}">🗑</button>`:''}</div>
         <div class="linkbox" id="lb-${g.id}" hidden></div></div></article>`}).join('')}</div>`;
-  const foot=MODE==='web'?`<p style="margin-top:28px;text-align:center">${canEdit?'<button class="btn" id="logout">יציאה ממצב עריכה</button>':'<button class="btn" id="login">🔑 כניסת מורה</button>'}</p>`:'';
+  const foot='';
   main.innerHTML=head+body+foot;
   const lg=$('#login');if(lg)lg.onclick=()=>renderLogin();const lo=$('#logout');if(lo)lo.onclick=logout;
   main.querySelectorAll('#newGame,#newGame2').forEach(b=>b.onclick=createGame);
@@ -381,25 +444,32 @@ function renderLibrary(){
   main.querySelectorAll('[data-link]').forEach(b=>b.onclick=()=>showLink(b.dataset.link));
   showSaveBar();
 }
-function showLink(id){
-  const box=$('#lb-'+id),link=gameLink(id);box.hidden=false;
-  box.innerHTML=`<span>קישור ישיר למשחק:</span><code id="lt-${id}">${esc(link)}</code><button class="btn" id="lc-${id}">העתקה</button>${dirty?'<span class="badge">שמרו קודם</span>':''}`;
+async function showLink(id){
+  const box=$('#lb-'+id),g=games.find(x=>x.id===id);if(!g)return;box.hidden=false;
+  let link=gameLink(id);
+  if(!(MODE==='web'&&PUBLIC_IDS.has(id)&&!g._local)){box.innerHTML='<span class="muted">מכין קישור…</span>';try{link=await shareLink(g)}catch(e){box.innerHTML='<span class="warn">לא הצלחתי להכין קישור.</span>';return}}
+  const long=link.length>60000;
+  box.innerHTML=`<span>קישור למשחק${link.includes('#g=')?' (המשחק כולו בתוך הקישור)':''}:</span><code id="lt-${id}" style="max-height:5.5em;overflow:auto;display:block">${esc(link)}</code><button class="btn" id="lc-${id}">העתקה</button>${long?'<span class="warn">הקישור ארוך בגלל התמונות. אם הוא לא נפתח אצל מישהו, נסו להשתמש בפחות תמונות שונות.</span>':''}${dirty?'<span class="badge">שמרו קודם</span>':''}`;
   $('#lc-'+id).onclick=e=>{const btn=e.currentTarget;
     const sel=()=>{const r=document.createRange();r.selectNodeContents($('#lt-'+id));const s=getSelection();s.removeAllRanges();s.addRange(r);btn.textContent='סומן, העתיקו עם Ctrl+C'};
     try{navigator.clipboard.writeText(link).then(()=>btn.textContent='הועתק ✓',sel)}catch(err){sel()}};
 }
 function createGame(){
   const g={id:newId(),title:'משחק חדש',pages:[blankChoose()],updatedAt:Date.now()};
+  if(MODE==='web'){g._local=true;games.unshift(g);localSave();go('#edit-'+g.id);return}
   games.unshift(g);dirty=true;go('#edit-'+g.id);showSaveBar();
 }
 function dupGame(id){
   const i=games.findIndex(x=>x.id===id);if(i<0)return;
   const c=structuredClone(games[i]);c.id=newId();c.title=(c.title||'משחק')+' (עותק)';c.updatedAt=Date.now();
+  if(MODE==='web'){c._local=true;games.splice(i+1,0,c);localSave();renderLibrary();return}
   games.splice(i+1,0,c);markDirty();renderLibrary();
 }
 function delGame(id,btn){
   if(!btn.classList.contains('on')){btn.classList.add('on');btn.textContent='למחוק? כן';setTimeout(()=>{if(btn.isConnected){btn.classList.remove('on');btn.textContent='🗑'}},3500);return}
-  const i=games.findIndex(x=>x.id===id);if(i>=0)games.splice(i,1);markDirty();renderLibrary();
+  const i=games.findIndex(x=>x.id===id);if(i>=0)games.splice(i,1);
+  if(MODE==='web'){if(PUBLIC_IDS.has(id)&&!HIDDEN.includes(id))HIDDEN.push(id);localSave();renderLibrary();return}
+  markDirty();renderLibrary();
 }
 
 /* ---------------- editor ---------------- */
