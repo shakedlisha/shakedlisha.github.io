@@ -235,10 +235,48 @@ function drawHand(g,x,y,ang,open){
   h+=`<ellipse cx="0" cy="0" rx="9" ry="9.5" fill="#F1C3A0" stroke="${OL}" stroke-width="2.6"/></g>`;
   g.innerHTML=h;
 }
+/* ---------- Dan in profile, facing left: used while he walks toward the centipede ---------- */
+const SG=el('g',{},dan);
+const stube=(fill,wOut,wIn)=>{const o=el('path',{fill:'none',stroke:OL,'stroke-width':wOut,'stroke-linecap':'round','stroke-linejoin':'round'},SG);const i=el('path',{fill:'none',stroke:fill,'stroke-width':wIn,'stroke-linecap':'round','stroke-linejoin':'round'},SG);return {set(d){o.setAttribute('d',d);i.setAttribute('d',d)}}};
+const P={};
+P.armBskin=stube('#E3A57D',18,11);P.armBsleeve=stube('#1F8150',23,16);P.handB=el('ellipse',{rx:8,ry:8.5,fill:'#E3A57D',stroke:OL,'stroke-width':2.6},SG);
+P.legB=stube('#24324F',23,16);P.shoeB=el('path',{fill:'#C93C33',stroke:OL,'stroke-width':3.2,'stroke-linejoin':'round'},SG);
+P.legF=stube('#33466A',23,16);P.shoeF=el('path',{fill:'#E2483D',stroke:OL,'stroke-width':3.2,'stroke-linejoin':'round'},SG);
+el('path',{d:'M-19 -186 C-6 -194 12 -194 20 -186 C25 -160 24 -132 21 -106 C6 -101 -8 -101 -21 -106 C-25 -132 -25 -160 -19 -186 Z',fill:'url(#dShirt)',stroke:OL,'stroke-width':3.4,'stroke-linejoin':'round'},SG);
+el('path',{d:'M12 -180 C17 -156 17 -130 14 -108',fill:'none',stroke:'#1F8150','stroke-width':3,'stroke-linecap':'round'},SG);
+el('path',{d:'M-6 -206 L-6 -188 C-2 -185 4 -185 8 -188 L8 -206 Z',fill:'#E3A57D',stroke:OL,'stroke-width':3},SG);
+P.head=el('g',{},SG);
+P.head.innerHTML=`
+  <path d="M-27 -248 C-26 -268 -10 -279 6 -279 C24 -279 33 -264 33 -244 C33 -223 21 -206 3 -205 C-9 -205 -18 -211 -22 -220 C-24 -224 -26 -226 -26 -229 C-31 -231 -33 -235 -30 -238 C-28 -240 -27 -244 -27 -248 Z" fill="url(#dSkin)" stroke="${OL}" stroke-width="3.4" stroke-linejoin="round"/>
+  <ellipse cx="10" cy="-238" rx="6.5" ry="9" fill="#EDB68E" stroke="${OL}" stroke-width="3"/>
+  <path d="M8 -241 C11 -238 11 -235 8 -233" fill="none" stroke="#C98A63" stroke-width="2"/>
+  <path d="M-27 -250 C-26 -272 -8 -285 8 -284 C29 -283 39 -264 35 -238 C32 -228 28 -224 24 -224 C24 -237 21 -247 15 -253 C4 -258 -14 -257 -27 -250 Z" fill="#3B2416" stroke="${OL}" stroke-width="3.2" stroke-linejoin="round"/>
+  <path d="M-10 -276 C0 -280 12 -279 20 -274" fill="none" stroke="#6A4630" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M-21 -253 C-17 -256 -12 -256 -8 -254" fill="none" stroke="${OL}" stroke-width="3.4" stroke-linecap="round"/>
+  <ellipse cx="-14" cy="-242" rx="4.6" ry="6.6" fill="#fff" stroke="${OL}" stroke-width="2.4"/>
+  <circle cx="-15.5" cy="-244.5" r="2.9" fill="#6B4226"/><circle cx="-15.5" cy="-244.5" r="1.5" fill="#111"/><circle cx="-16.6" cy="-245.6" r="0.9" fill="#fff"/>
+  <path d="M-26 -222 C-23 -219 -19 -219 -16 -221" fill="none" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/>`;
+P.armFskin=stube('#F1C3A0',18,11);P.armFsleeve=stube('#2FAE70',23,16);P.handF=el('ellipse',{rx:8,ry:8.5,fill:'#F1C3A0',stroke:OL,'stroke-width':2.6},SG);
+function drawDanSide(S,x,y){
+  const sw=Math.sin(RT*9),bob=-Math.abs(Math.cos(RT*9))*2.5;
+  SG.setAttribute('transform',`translate(${x} ${y+bob})`);
+  const leg=(f)=>`M2 -106 L${f/2-6} -56 L${f} -8`;
+  const shoe=(fx)=>`M${fx+11} -2 C${fx+11} -12 ${fx-4} -16 ${fx-14} -8 C${fx-20} -4 ${fx-18} 4 ${fx-12} 4 L${fx+9} 4 C${fx+13} 4 ${fx+13} 1 ${fx+11} -2 Z`;
+  const fF=-sw*24,fB=sw*24;
+  P.legB.set(leg(fB));P.shoeB.setAttribute('d',shoe(fB));P.legF.set(leg(fF));P.shoeF.setAttribute('d',shoe(fF));
+  const arm=(s)=>{const e=[2+s*14,-146],w=[2+s*26,-118];return {e,w,d:`M2 -180 L${e[0]} ${e[1]} L${w[0]} ${w[1]}`,sl:`M2 -180 L${lerp(2,e[0],.55)} ${lerp(-180,e[1],.55)}`}};
+  const aF=arm(sw),aB=arm(-sw); // arms swing opposite to the legs
+  P.armFskin.set(aF.d);P.armFsleeve.set(aF.sl);P.handF.setAttribute('cx',aF.w[0]);P.handF.setAttribute('cy',aF.w[1]);
+  P.armBskin.set(aB.d);P.armBsleeve.set(aB.sl);P.handB.setAttribute('cx',aB.w[0]);P.handB.setAttribute('cy',aB.w[1]);
+}
+
 function danX(S){if(S<3.0)return lerp(1050,650,ease(seg(S,0,3.0)));if(S<6.6)return 650;return lerp(650,720,ease(seg(S,6.6,7.3)))}
 function drawDan(S){
   const scared=S>3.4&&S<12.8,relieved=S>=12.8,walking=S<3.0||(S>6.6&&S<7.3);
   const x=danX(S)+(scared?Math.sin(RT*70)*2:0),y=G+6;
+  /* walking toward the centipede (and the moment he stops): show him in profile, facing it */
+  if(S<3.1){SG.setAttribute('display','inline');DG.setAttribute('display','none');drawDanSide(S,x,y);return {headX:x-4,headY:y-242}}
+  SG.setAttribute('display','none');DG.setAttribute('display','inline');
   DG.setAttribute('transform',`translate(${x} ${y})`);
   const sw=walking?Math.sin(RT*(S<3.0?9:12)):0;
   // legs: hips at y=-108, knees bend while walking
