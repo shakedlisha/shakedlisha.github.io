@@ -65,6 +65,7 @@ body.auto{padding:0;background:#2F8FD8}body.auto .top,body.auto .start,body.auto
 <div class="frame">
   <div class="stage" id="stage">
     <svg viewBox="0 0 960 540" aria-hidden="true">
+      <defs><linearGradient id="dSkin" x1="0" x2="1"><stop offset="0" stop-color="#F8D2B2"/><stop offset="1" stop-color="#EDB68E"/></linearGradient><linearGradient id="dShirt" x1="0" x2="1"><stop offset="0" stop-color="#36BC79"/><stop offset="1" stop-color="#249159"/></linearGradient></defs>
       <!-- sky, sun, clouds -->
       <rect width="960" height="540" fill="#CFEAFB"/>
       <circle cx="840" cy="80" r="44" fill="#FFD43B"/>
@@ -117,11 +118,14 @@ const G=400; // ground line
 
 /* ---------- story timeline (seconds) ---------- */
 const STOPS=[
-  {at:5.1, bubble:{show:4.7,hide:5.9,x:740,y:150,html:'דָּן <b>חָרַד</b> מֵהַנָּדָל'}},
-  {at:6.5, bubble:{show:6.0,hide:7.0,x:740,y:150,html:'דָּן <b>חָשַׁשׁ</b> שֶׁהַנָּדָל יִפְגַּע בּוֹ'}},
-  {at:9.5, bubble:{show:9.0,hide:10.5,x:430,y:24,cap:true,html:'הַנָּדָל <b>חָדַר</b> לָאֲדָמָה'}},
+  {at:6.4, bubble:{show:6.0,hide:7.2,x:740,y:106,html:'דָּן <b>חָרַד</b> מֵהַנָּדָל'}},
+  {at:7.8, bubble:{show:7.3,hide:8.3,x:770,y:106,html:'דָּן <b>חָשַׁשׁ</b> שֶׁהַנָּדָל יִפְגַּע בּוֹ'}},
+  {at:10.8, bubble:{show:10.3,hide:11.8,x:430,y:24,cap:true,html:'הַנָּדָל <b>חָדַר</b> לָאֲדָמָה'}},
 ];
-const END=11.6;
+const END=12.9;
+/* story time: after Dan sees the centipede (4.8) the story holds 1.3 s while he stares, then goes on */
+const HOLD_AT=4.8,HOLD=1.3;let RT=0;
+const story=T=>T<HOLD_AT?T:(T<HOLD_AT+HOLD?HOLD_AT:T-HOLD);
 const PACE=0.62; /* story speed: about 19 seconds of animation, 30 with the stops */
 
 /* ---------- flowers (static) ---------- */
@@ -159,21 +163,21 @@ const fang2=el('path',{fill:'none',stroke:'#E2483D','stroke-width':5.5,'stroke-l
 const eyeW=el('circle',{r:5.5,fill:'#fff'},headDeco),eyeP=el('circle',{r:2.8,fill:'#16324F'},headDeco);
 function drawCenti(T){
   const s=headS(T),moving=(T>1.2&&T<3.8)||(T>7.5&&T<9.1);
-  const scared=T>6.9&&T<7.6,shake=scared?Math.sin(T*80)*2.5:0;
+  const scared=T>6.9&&T<7.6,shake=scared?Math.sin(RT*80)*2.5:0;
   for(let i=0;i<N;i++){
     const p=pathAt(s-i*SP),nx=-p.ty,ny=p.tx; // normal points "down" for a right-moving body
-    const bob=(moving?Math.sin(T*14-i*.8)*2:Math.sin(T*3-i*.5)*.8)*K;
+    const bob=(moving?Math.sin(RT*14-i*.8)*2:Math.sin(RT*3-i*.5)*.8)*K;
     const cx=p.x+nx*bob+shake,cy=p.y+ny*bob;
     const {body,legs,stripe}=parts[i];
     body.setAttribute('cx',cx);body.setAttribute('cy',cy);
     if(stripe){stripe.setAttribute('x1',cx-nx*16);stripe.setAttribute('y1',cy-ny*16);stripe.setAttribute('x2',cx+nx*16);stripe.setAttribute('y2',cy+ny*16)}
-    const ph=(moving?T*16:T*2)-i*.9;
+    const ph=(moving?RT*16:RT*2)-i*.9;
     legs.forEach((l,k)=>{const side=k<2?1:-1,off=(k%2?6:-6),w=Math.sin(ph+(k%2?Math.PI:0))*(moving?11:3);
       const bx=cx+p.tx*off,by=cy+p.ty*off,len=i===0?0:30;
       l.setAttribute('x1',bx);l.setAttribute('y1',by);l.setAttribute('x2',bx+nx*len*side*(side>0?1:.55)+p.tx*w);l.setAttribute('y2',by+ny*len*side*(side>0?1:.55)+p.ty*w);
       l.setAttribute('opacity',side>0?1:.55)});
     if(i===0){
-      const hx=cx,hy=cy,tx=p.tx*K,ty=p.ty*K,nx2=nx*K,ny2=ny*K,w=Math.sin(T*6)*4;
+      const hx=cx,hy=cy,tx=p.tx*K,ty=p.ty*K,nx2=nx*K,ny2=ny*K,w=Math.sin(RT*6)*4;
       ant1.setAttribute('d',`M${hx+tx*10-nx2*6} ${hy+ty*10-ny2*6} q${tx*18-nx2*14} ${ty*18-ny2*14} ${tx*30-nx2*26+w} ${ty*30-ny2*26}`);
       ant2.setAttribute('d',`M${hx+tx*10-nx2*2} ${hy+ty*10-ny2*2} q${tx*22-nx2*6} ${ty*22-ny2*6} ${tx*38-nx2*12-w} ${ty*38-ny2*12}`);
       fang1.setAttribute('d',`M${hx+tx*12+nx2*6} ${hy+ty*12+ny2*6} q${tx*8} ${ty*8} ${tx*6+nx2*8} ${ty*6+ny2*8}`);
@@ -197,70 +201,80 @@ function drawDirt(T){
     d.c.setAttribute('opacity',1);d.c.setAttribute('cx',HX+d.vx*t);d.c.setAttribute('cy',G+d.vy*t+320*t*t)});
 }
 
-/* ---------- Dan ---------- */
+/* ---------- Dan: a fuller cartoon character (outlined, shaded) ---------- */
+const OL='#2A1E1A';
 const dan=$('#dan');
+const DG=el('g',{},dan); // everything in local coordinates: feet at (0,0), up is negative
+const tube=(fill,wOut,wIn)=>{const o=el('path',{fill:'none',stroke:OL,'stroke-width':wOut,'stroke-linecap':'round','stroke-linejoin':'round'},DG);const i=el('path',{fill:'none',stroke:fill,'stroke-width':wIn,'stroke-linecap':'round','stroke-linejoin':'round'},DG);return {set(d){o.setAttribute('d',d);i.setAttribute('d',d)}}};
 const D={};
-D.legL=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':16,'stroke-linecap':'round'},dan);
-D.legR=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':16,'stroke-linecap':'round'},dan);
-D.shoeL=el('ellipse',{rx:15,ry:8,fill:'#E2483D'},dan);D.shoeR=el('ellipse',{rx:15,ry:8,fill:'#E2483D'},dan);
-D.shorts=el('path',{fill:'#2F8FD8'},dan);
-D.armL=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':13,'stroke-linecap':'round','stroke-linejoin':'round'},dan);
-D.armR=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':13,'stroke-linecap':'round','stroke-linejoin':'round'},dan);
-D.shirt=el('path',{fill:'#2FAE70'},dan);
-D.head=el('circle',{r:32,fill:'#F2C29B'},dan);
-D.hair=el('path',{fill:'#2B1B10'},dan);
-D.eyeLW=el('circle',{fill:'#fff'},dan);D.eyeRW=el('circle',{fill:'#fff'},dan);
-D.eyeL=el('circle',{fill:'#16324F'},dan);D.eyeR=el('circle',{fill:'#16324F'},dan);
-D.lidL=el('path',{fill:'none',stroke:'#16324F','stroke-width':3.5,'stroke-linecap':'round'},dan);D.lidR=el('path',{fill:'none',stroke:'#16324F','stroke-width':3.5,'stroke-linecap':'round'},dan);
-D.browL=el('path',{fill:'none',stroke:'#2B1B10','stroke-width':4,'stroke-linecap':'round'},dan);D.browR=el('path',{fill:'none',stroke:'#2B1B10','stroke-width':4,'stroke-linecap':'round'},dan);
-D.mouth=el('path',{fill:'none',stroke:'#16324F','stroke-width':3.5,'stroke-linecap':'round'},dan);
-D.cheekL=el('circle',{r:6,fill:'#F29C9C',opacity:.6},dan);D.cheekR=el('circle',{r:6,fill:'#F29C9C',opacity:.6},dan);
-D.sweat=el('path',{fill:'#7CC6F5'},dan);
-function danX(T){if(T<2.6)return lerp(1050,720,ease(seg(T,0,2.6)));if(T<5.2)return 720;return lerp(720,780,ease(seg(T,5.2,5.9)))}
-function drawDan(T){
-  const scared=T>4.2&&T<9.7,relieved=T>=9.7;
-  const walking=T<2.6||(T>5.2&&T<5.9);
-  const x=danX(T)+(scared?Math.sin(T*70)*2.2:0),y=G+6;
-  const sw=walking?Math.sin(T*(T<2.6?9:12))*16:0;
-  // legs: hip at y-70, foot at y
-  const hipY=y-74;
-  D.legL.setAttribute('d',`M${x-12} ${hipY} L${x-12+sw} ${y-8}`);D.legR.setAttribute('d',`M${x+12} ${hipY} L${x+12-sw} ${y-8}`);
-  D.shoeL.setAttribute('cx',x-16+sw);D.shoeL.setAttribute('cy',y-4);D.shoeR.setAttribute('cx',x+8-sw);D.shoeR.setAttribute('cy',y-4);
-  D.shorts.setAttribute('d',`M${x-30} ${hipY-22} h60 l4 34 h-26 l-4 -12 l-4 12 h-26z`);
-  D.shirt.setAttribute('d',`M${x-34} ${hipY-96} q34 -16 68 0 l6 76 h-80z`);
-  const shY=hipY-86;
-  if(scared){ // hands up near the face
-    D.armL.setAttribute('d',`M${x-30} ${shY} L${x-48} ${shY-26} L${x-34} ${shY-56}`);D.armR.setAttribute('d',`M${x+30} ${shY} L${x+48} ${shY-26} L${x+34} ${shY-56}`);
-  }else if(relieved){
-    const wave=Math.sin(T*8)*10;
-    D.armL.setAttribute('d',`M${x-30} ${shY} L${x-46} ${shY+30} L${x-48} ${shY+56}`);D.armR.setAttribute('d',`M${x+30} ${shY} L${x+56} ${shY-24} L${x+66+wave} ${shY-56}`);
-  }else{
-    D.armL.setAttribute('d',`M${x-30} ${shY} L${x-44-sw*.4} ${shY+34} L${x-46-sw*.6} ${shY+60}`);D.armR.setAttribute('d',`M${x+30} ${shY} L${x+44+sw*.4} ${shY+34} L${x+46+sw*.6} ${shY+60}`);
-  }
-  const hy=hipY-140,hx=x;
-  D.head.setAttribute('cx',hx);D.head.setAttribute('cy',hy);
-  D.hair.setAttribute('d',`M${hx-34} ${hy-2} q2 -38 36 -36 q34 0 32 34 q-10 -14 -26 -16 q-6 10 -18 10 q-12 0 -24 8z`);
-  D.cheekL.setAttribute('cx',hx-20);D.cheekL.setAttribute('cy',hy+12);D.cheekR.setAttribute('cx',hx+20);D.cheekR.setAttribute('cy',hy+12);
-  const ex=13,ey=hy-2;
-  if(scared){
-    [[D.eyeLW,-ex],[D.eyeRW,ex]].forEach(([e,o])=>{e.setAttribute('cx',hx+o);e.setAttribute('cy',ey);e.setAttribute('r',8.5)});
-    [[D.eyeL,-ex],[D.eyeR,ex]].forEach(([e,o])=>{e.setAttribute('cx',hx+o-3);e.setAttribute('cy',ey+1);e.setAttribute('r',3.6)});
-    D.lidL.setAttribute('d','');D.lidR.setAttribute('d','');
-    D.browL.setAttribute('d',`M${hx-22} ${ey-16} q8 -8 16 -2`);D.browR.setAttribute('d',`M${hx+22} ${ey-16} q-8 -8 -16 -2`);
-    D.mouth.setAttribute('d',`M${hx-6} ${hy+18} a6 7 0 1 0 12 0 a6 7 0 1 0 -12 0`);
-    D.sweat.setAttribute('d',`M${hx+30} ${hy-20} q6 10 0 14 q-6 -4 0 -14z`);
-  }else if(relieved){
-    [D.eyeLW,D.eyeRW,D.eyeL,D.eyeR].forEach(e=>e.setAttribute('r',0));
-    D.lidL.setAttribute('d',`M${hx-ex-6} ${ey} q6 6 12 0`);D.lidR.setAttribute('d',`M${hx+ex-6} ${ey} q6 6 12 0`);
-    D.browL.setAttribute('d','');D.browR.setAttribute('d','');
-    D.mouth.setAttribute('d',`M${hx-12} ${hy+13} q12 12 24 0`);D.sweat.setAttribute('d','');
-  }else{
-    [D.eyeLW,D.eyeRW].forEach(e=>e.setAttribute('r',0));
-    [[D.eyeL,-ex],[D.eyeR,ex]].forEach(([e,o])=>{e.setAttribute('cx',hx+o);e.setAttribute('cy',ey);e.setAttribute('r',4)});
-    D.lidL.setAttribute('d','');D.lidR.setAttribute('d','');D.browL.setAttribute('d','');D.browR.setAttribute('d','');
-    D.mouth.setAttribute('d',`M${hx-11} ${hy+13} q11 9 22 0`);D.sweat.setAttribute('d','');
-  }
-  return {headX:hx,headY:hy};
+D.legB=tube('#24324F',23,16);D.legF=tube('#33466A',23,16);
+D.shoeB=el('path',{fill:'#C93C33',stroke:OL,'stroke-width':3.2,'stroke-linejoin':'round'},DG);
+D.shoeF=el('path',{fill:'#E2483D',stroke:OL,'stroke-width':3.2,'stroke-linejoin':'round'},DG);
+D.armBskin=tube('#EDB68E',19,12);D.armBsleeve=tube('#279A62',24,17);D.handB=el('g',{},DG);
+D.torso=el('path',{d:'M-31 -186 C-18 -194 18 -194 31 -186 C37 -160 36 -132 32 -106 C12 -100 -12 -100 -32 -106 C-36 -132 -37 -160 -31 -186 Z',fill:'url(#dShirt)',stroke:OL,'stroke-width':3.4,'stroke-linejoin':'round'},DG);
+el('path',{d:'M22 -180 C28 -156 28 -130 24 -108',fill:'none',stroke:'#1F8150','stroke-width':3,'stroke-linecap':'round'},DG);
+el('path',{d:'M-30 -112 C-10 -106 10 -106 30 -112',fill:'none',stroke:'#1F8150','stroke-width':2.4},DG);
+D.neck=el('path',{d:'M-8 -206 L-8 -188 C-3 -184 3 -184 8 -188 L8 -206 Z',fill:'#E3A57D',stroke:OL,'stroke-width':3},DG);
+el('path',{d:'M-14 -191 C-6 -183 6 -183 14 -191',fill:'none',stroke:OL,'stroke-width':3,'stroke-linecap':'round'},DG);
+D.earL=el('ellipse',{cx:-30,cy:-236,rx:6.5,ry:9.5,fill:'#F1C3A0',stroke:OL,'stroke-width':3},DG);
+D.earR=el('ellipse',{cx:30,cy:-236,rx:6.5,ry:9.5,fill:'#E9B08A',stroke:OL,'stroke-width':3},DG);
+D.head=el('path',{d:'M-30 -240 C-30 -264 -16 -276 0 -276 C17 -276 30 -264 30 -240 C30 -218 18 -203 0 -203 C-18 -203 -30 -218 -30 -240 Z',fill:'url(#dSkin)',stroke:OL,'stroke-width':3.4},DG);
+D.hair=el('path',{d:'M-32 -238 C-36 -266 -18 -284 2 -283 C24 -283 38 -266 33 -240 C29 -251 22 -258 12 -259 C5 -251 -10 -249 -20 -255 C-26 -251 -30 -245 -32 -238 Z',fill:'#3B2416',stroke:OL,'stroke-width':3.2,'stroke-linejoin':'round'},DG);
+el('path',{d:'M-14 -274 C-6 -279 6 -279 14 -276',fill:'none',stroke:'#6A4630','stroke-width':2.6,'stroke-linecap':'round'},DG);
+D.fear=el('g',{stroke:'#7FA7D9','stroke-width':2.4,'stroke-linecap':'round'},DG);
+[-9,-3,3,9].forEach(x=>el('path',{d:`M${x} -262 V-254`},D.fear));
+D.browL=el('path',{fill:'none',stroke:OL,'stroke-width':3.6,'stroke-linecap':'round'},DG);D.browR=el('path',{fill:'none',stroke:OL,'stroke-width':3.6,'stroke-linecap':'round'},DG);
+D.eyes=[-11,11].map(ex=>({x:ex,w:el('ellipse',{fill:'#fff',stroke:OL,'stroke-width':2.6},DG),i:el('circle',{fill:'#6B4226'},DG),p:el('circle',{fill:'#111'},DG),h:el('circle',{r:1.3,fill:'#fff'},DG),lid:el('path',{fill:'none',stroke:OL,'stroke-width':3,'stroke-linecap':'round'},DG)}));
+el('path',{d:'M1 -236 C-2 -230 -2 -226 3 -225',fill:'none',stroke:'#C98A63','stroke-width':2.6,'stroke-linecap':'round'},DG);
+D.cheekL=el('ellipse',{cx:-18,cy:-224,rx:5,ry:3,fill:'#F29C9C',opacity:0},DG);D.cheekR=el('ellipse',{cx:18,cy:-224,rx:5,ry:3,fill:'#F29C9C',opacity:0},DG);
+D.mouth=el('path',{stroke:OL,'stroke-width':2.8,'stroke-linejoin':'round','stroke-linecap':'round'},DG);
+D.teeth=el('path',{fill:'#fff'},DG);
+D.armFskin=tube('#F1C3A0',19,12);D.armFsleeve=tube('#2FAE70',24,17);D.handF=el('g',{},DG);
+function drawHand(g,x,y,ang,open){
+  let h=`<g transform="translate(${x} ${y}) rotate(${ang})">`;
+  if(open){[-30,-10,10,30].forEach((a,i)=>{h+=`<ellipse cx="0" cy="-12" rx="3.2" ry="${i===1||i===2?8:7}" transform="rotate(${a})" fill="#F1C3A0" stroke="${OL}" stroke-width="2.4"/>`});h+=`<ellipse cx="0" cy="-10" rx="3.2" ry="6.5" transform="rotate(75)" fill="#F1C3A0" stroke="${OL}" stroke-width="2.4"/>`}
+  h+=`<ellipse cx="0" cy="0" rx="9" ry="9.5" fill="#F1C3A0" stroke="${OL}" stroke-width="2.6"/></g>`;
+  g.innerHTML=h;
+}
+function danX(S){if(S<2.6)return lerp(1050,720,ease(seg(S,0,2.6)));if(S<5.2)return 720;return lerp(720,780,ease(seg(S,5.2,5.9)))}
+function drawDan(S){
+  const scared=S>4.2&&S<9.7,relieved=S>=9.7,walking=S<2.6||(S>5.2&&S<5.9);
+  const x=danX(S)+(scared?Math.sin(RT*70)*2:0),y=G+6;
+  DG.setAttribute('transform',`translate(${x} ${y})`);
+  const sw=walking?Math.sin(RT*(S<2.6?9:12)):0;
+  // legs: hips at y=-108, knees bend while walking
+  const leg=(hx,s)=>`M${hx} -106 L${hx+s*10} -56 L${hx+s*20} -10`;
+  D.legB.set(leg(9,-sw));D.legF.set(leg(-9,sw));
+  const shoe=(fx)=>`M${fx-13} -2 C${fx-13} -12 ${fx+4} -16 ${fx+14} -8 C${fx+20} -4 ${fx+18} 4 ${fx+12} 4 L${fx-11} 4 C${fx-15} 4 ${fx-15} 1 ${fx-13} -2 Z`;
+  D.shoeB.setAttribute('d',shoe(9-sw*20));D.shoeF.setAttribute('d',shoe(-9+sw*20));
+  // arms
+  let eB,wB,eF,wF,openB=false,openF=false;
+  if(scared){eB=[48,-160];wB=[44,-200];eF=[-48,-160];wF=[-44,-200];openB=openF=true}
+  else if(relieved){const wave=Math.sin(RT*8)*8;eB=[48,-196];wB=[56+wave,-226];eF=[-36,-146];wF=[-38,-114];openB=true}
+  else{eB=[36+sw*6,-146];wB=[38+sw*12,-114];eF=[-36-sw*6,-146];wF=[-38-sw*12,-114]}
+  const arm=(sx,e,w)=>`M${sx} -180 L${e[0]} ${e[1]} L${w[0]} ${w[1]}`;
+  const sleeve=(sx,e)=>`M${sx} -180 L${lerp(sx,e[0],.55)} ${lerp(-180,e[1],.55)}`;
+  D.armBskin.set(arm(28,eB,wB));D.armBsleeve.set(sleeve(28,eB));D.armFskin.set(arm(-28,eF,wF));D.armFsleeve.set(sleeve(-28,eF));
+  const ang=(e,w)=>Math.atan2(w[0]-e[0],-(w[1]-e[1]))*180/Math.PI;
+  drawHand(D.handB,wB[0],wB[1],ang(eB,wB),openB);drawHand(D.handF,wF[0],wF[1],ang(eF,wF),openF);
+  // face
+  D.fear.setAttribute('opacity',0);
+  D.eyes.forEach(e=>{
+    if(relieved){[e.w,e.i,e.p,e.h].forEach(n=>n.setAttribute('opacity',0));e.lid.setAttribute('d',`M${e.x-6} -240 q6 5 12 0`);return}
+    [e.w,e.i,e.p,e.h].forEach(n=>n.setAttribute('opacity',1));e.lid.setAttribute('d','');
+    const look=scared?-2:-1;
+    e.w.setAttribute('cx',e.x);e.w.setAttribute('cy',-240);e.w.setAttribute('rx',scared?7.5:6.2);e.w.setAttribute('ry',scared?9.5:7.6);
+    e.i.setAttribute('cx',e.x+look);e.i.setAttribute('cy',-239);e.i.setAttribute('r',scared?3:4);
+    e.p.setAttribute('cx',e.x+look);e.p.setAttribute('cy',-239);e.p.setAttribute('r',scared?1.6:2);
+    e.h.setAttribute('cx',e.x+look-1.2);e.h.setAttribute('cy',-240.5);
+  });
+  if(scared){D.browL.setAttribute('d','M-19 -252 C-15 -260 -8 -261 -4 -256');D.browR.setAttribute('d','M19 -252 C15 -260 8 -261 4 -256')}
+  else{D.browL.setAttribute('d','M-18 -251 C-14 -254 -8 -255 -4 -253');D.browR.setAttribute('d','M18 -251 C14 -254 8 -255 4 -253')}
+  if(scared){D.mouth.setAttribute('d','M-10 -223 C-4 -227 4 -227 10 -223 C11 -215 6 -211 0 -211 C-6 -211 -11 -215 -10 -223 Z');D.mouth.setAttribute('fill','#6B1F2B');D.teeth.setAttribute('d','M-8 -223 C-3 -225.5 3 -225.5 8 -223 L7.5 -220 L-7.5 -220 Z')}
+  else if(relieved){D.mouth.setAttribute('d','M-8 -222 C-4 -216 4 -216 8 -222');D.mouth.setAttribute('fill','none');D.teeth.setAttribute('d','')}
+  else{D.mouth.setAttribute('d','M-9 -223 C-4 -222 4 -222 9 -223 C7 -215 -7 -215 -9 -223 Z');D.mouth.setAttribute('fill','#7A2A35');D.teeth.setAttribute('d','M-7.5 -222.7 C-3 -222 3 -222 7.5 -222.7 L7 -220.6 L-7 -220.6 Z')}
+  D.cheekL.setAttribute('opacity',relieved?.6:0);D.cheekR.setAttribute('opacity',relieved?.6:0);
+  return {headX:x,headY:y-240};
 }
 
 /* ---------- "!" marks ---------- */
@@ -268,7 +282,7 @@ const marks=$('#marks');
 const bangDan=el('text',{'font-family':'Secular One, Arial','font-size':64,fill:'#E2483D','text-anchor':'middle'},marks);bangDan.textContent='!';
 const bangCenti=el('text',{'font-family':'Secular One, Arial','font-size':48,fill:'#E2483D','text-anchor':'middle'},marks);bangCenti.textContent='!';
 function drawMarks(T,h){
-  const a=seg(T,4.1,4.3)*(1-seg(T,4.65,4.8));bangDan.setAttribute('x',h.headX+44);bangDan.setAttribute('y',h.headY-30);bangDan.setAttribute('opacity',a);
+  const a=seg(T,4.1,4.3)*(1-seg(T,4.65,4.8));bangDan.setAttribute('x',h.headX+40);bangDan.setAttribute('y',h.headY-50);bangDan.setAttribute('opacity',a);
   const p=pathAt(headS(T)),b=seg(T,6.9,7.05)*(1-seg(T,7.5,7.6));bangCenti.setAttribute('x',p.x+6);bangCenti.setAttribute('y',p.y-30);bangCenti.setAttribute('opacity',b);
 }
 
@@ -289,11 +303,11 @@ function noise(d,vol,when=0,freq=600){if(!sound)return;try{ac=ac||new (window.Au
   const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain(),t=ac.currentTime+when;s.buffer=n;f.type='lowpass';f.frequency.value=freq;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(f).connect(g).connect(ac.destination);s.start(t)}catch(e){}}
 const sfx={pop(){tone(520,.12,'triangle',.15,0,900)},gasp(){tone(700,.25,'triangle',.12,0,300)},boing(){tone(300,.3,'sine',.12,0,900)},
   dig(){for(let k=0;k<6;k++)noise(.09,.18,k*.17,500)},yay(){[523,659,784].forEach((f,i)=>tone(f,.2,'triangle',.14,i*.1))}};
-const cues=[[4.1,'gasp'],[6.9,'boing'],[7.6,'dig'],[9.75,'yay']];
+const cues=[[4.1,'gasp'],[8.2,'boing'],[8.9,'dig'],[11.05,'yay']];
 
 /* ---------- player ---------- */
 let T=0,playing=false,stopIdx=0,last=0,started=false;
-function render(){const h=drawDan(T);drawCenti(T);drawDirt(T);drawMarks(T,h);drawBubbles(T)}
+function render(){RT=T;const S=story(T);const h=drawDan(S);drawCenti(S);drawDirt(S);drawMarks(S,h);drawBubbles(T)}
 function frame(now){
   if(playing){
     const dt=Math.min(.05,(now-last)/1000);const prev=T;T+=dt*PACE;
