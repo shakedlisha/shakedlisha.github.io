@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>דָּן וְהַנָּדָל</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Secular+One&display=swap">
+<style>
+/* Layout: one 16:9 stage centered on the page; story bubbles and the pause button sit over the drawing. */
+:root{
+  --page:#CFEAFB;--frame:#2F8FD8;--bulb:#FFF4B8;--ink:#16324F;--muted:#5B7590;--card:#fff;--sun:#FFC52E;--sunDeep:#C98F00;--hi:#E2483D;
+  --display:"Secular One","Fredoka","Arial Hebrew",Arial,sans-serif;--body:"Fredoka","Arial Hebrew",Arial,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--page);color:var(--ink);font-family:var(--body);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding-block:max(10px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+[hidden]{display:none!important}
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:4px solid var(--ink);outline-offset:3px}
+.top{width:min(100%,calc((100vh - 120px)*16/9),1200px);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.top h1{font-family:var(--display);font-weight:400;font-size:clamp(20px,3vw,30px);margin:0;color:var(--frame);line-height:1.4}
+.tools{display:flex;gap:6px}
+.icon{background:var(--card);border:3px solid #D7E6F2;border-radius:14px;height:44px;min-width:44px;padding:0 10px;font-size:18px;font-weight:600;display:grid;place-items:center}
+.frame{width:min(100%,calc((100vh - 120px)*16/9),1200px);border-radius:26px;padding:12px;background-color:var(--frame);
+  background-image:radial-gradient(circle,var(--bulb) 0 4px,transparent 5px);background-size:24px 24px;background-position:2px 2px}
+.stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#fff}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bubble{position:absolute;transform:translate(-50%,-100%);background:var(--card);border:4px solid var(--ink);border-radius:26px;padding:.25em .8em;
+  font-family:var(--display);font-size:clamp(18px,3.4vw,40px);line-height:1.55;white-space:nowrap;box-shadow:0 6px 0 rgba(22,50,79,.18);animation:pop .4s cubic-bezier(.3,1.6,.6,1)}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);border:12px solid transparent;border-top:14px solid var(--ink)}
+.bubble::before{content:"";position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);border:9px solid transparent;border-top:11px solid var(--card);z-index:1}
+.bubble.cap{transform:translate(-50%,0);background:var(--sun);border-color:var(--sunDeep)}
+.bubble.cap::after,.bubble.cap::before{display:none}
+.bubble b{color:var(--hi);font-weight:400}
+@keyframes pop{from{opacity:0;scale:.5}}
+.cont{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);font-family:var(--display);font-size:clamp(18px,2.6vw,30px);background:var(--frame);color:#fff;border:0;border-radius:18px;padding:.25em 1.2em;box-shadow:0 5px 0 #1D6AA6;animation:pop .4s .2s both}
+.start,.end{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,2vw,18px);text-align:center;background:rgba(207,234,251,.88)}
+.start h2,.end h2{font-family:var(--display);font-weight:400;font-size:clamp(30px,6vw,72px);margin:0;line-height:1.35}
+.go{font-family:var(--display);font-size:clamp(22px,3.2vw,36px);background:var(--sun);border:0;border-radius:20px;padding:.2em 1.4em;box-shadow:0 6px 0 var(--sunDeep)}
+.words{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(6px,1.4vw,14px);width:min(92%,900px)}
+.word{background:var(--card);border-radius:18px;padding:clamp(6px,1.2vw,14px);box-shadow:0 4px 0 rgba(22,50,79,.12)}
+.word b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(22px,4vw,46px);color:var(--hi);line-height:1.4}
+.word span{font-size:clamp(13px,1.9vw,22px);line-height:1.5}
+.hint{font-size:14px;color:var(--muted);margin:0}
+body.auto{padding:0;background:#2F8FD8}body.auto .top,body.auto .start,body.auto .hint{display:none}body.auto .frame{width:100vw;border-radius:0;padding:0}body.auto .stage{border-radius:0}
+@media (prefers-reduced-motion:reduce){.bubble,.cont{animation:none}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>דָּן וְהַנָּדָל</h1>
+  <div class="tools">
+    <button class="icon" id="playBtn" aria-label="הַשְׁהָיָה" title="הַשְׁהָיָה">⏸</button>
+    <button class="icon" id="restartBtn" aria-label="מֵהַהַתְחָלָה" title="מֵהַהַתְחָלָה">↺</button>
+    <button class="icon" id="muteBtn" aria-label="צְלִילִים" title="צְלִילִים">🔔</button>
+    <button class="icon" id="fullBtn" aria-label="מָסָךְ מָלֵא" title="מָסָךְ מָלֵא">⛶</button>
+  </div>
+</div>
+<div class="frame">
+  <div class="stage" id="stage">
+    <svg viewBox="0 0 960 540" aria-hidden="true">
+      <!-- sky, sun, clouds -->
+      <rect width="960" height="540" fill="#CFEAFB"/>
+      <circle cx="840" cy="80" r="44" fill="#FFD43B"/>
+      <g id="clouds" fill="#fff"><ellipse cx="200" cy="90" rx="70" ry="22"/><ellipse cx="240" cy="76" rx="44" ry="20"/><ellipse cx="560" cy="60" rx="56" ry="18"/></g>
+      <!-- back grass and bushes -->
+      <g fill="#7DCB82"><ellipse cx="90" cy="372" rx="90" ry="40"/><ellipse cx="610" cy="378" rx="80" ry="30"/><ellipse cx="900" cy="370" rx="100" ry="40"/></g>
+      <rect y="360" width="960" height="44" fill="#5DBB63"/>
+      <g id="flowers"></g>
+      <!-- centipede (drawn before the soil so it disappears into the ground) -->
+      <g id="centi"></g>
+      <!-- soil in front -->
+      <rect y="400" width="960" height="140" fill="#9A6A3F"/>
+      <g fill="#86592F" opacity=".8"><ellipse cx="120" cy="450" rx="30" ry="8"/><ellipse cx="300" cy="490" rx="40" ry="9"/><ellipse cx="520" cy="460" rx="26" ry="7"/><ellipse cx="760" cy="500" rx="44" ry="10"/><ellipse cx="880" cy="445" rx="22" ry="6"/></g>
+      <g fill="#B8875A"><circle cx="210" cy="430" r="5"/><circle cx="640" cy="520" r="6"/><circle cx="430" cy="505" r="4"/><circle cx="820" cy="430" r="4"/></g>
+      <path d="M0 400 Q480 390 960 400 L960 410 Q480 400 0 410Z" fill="#4CA552"/>
+      <g id="hole"></g>
+      <g id="dirt"></g>
+      <!-- Dan -->
+      <g id="dan"></g>
+      <g id="marks"></g>
+    </svg>
+    <div id="bubbles"></div>
+    <button class="cont" id="contBtn" hidden>▶ הַמְשֵׁךְ</button>
+    <div class="start" id="startScr">
+      <h2>דָּן וְהַנָּדָל</h2>
+      <button class="go" id="goBtn">▶ צְפִיָּה</button>
+      <p class="hint">הסרטון עוצר בכל בועה. ממשיכים בכפתור "הַמְשֵׁךְ" או במקש רווח.</p>
+    </div>
+    <div class="end" id="endScr" hidden>
+      <h2>הַסּוֹף</h2>
+      <div class="words">
+        <div class="word"><b>חָרַד</b><span>פָּחַד מְאוֹד</span></div>
+        <div class="word"><b>חָשַׁשׁ</b><span>דָּאַג שֶׁמַּשֶּׁהוּ רַע יִקְרֶה</span></div>
+        <div class="word"><b>חָדַר</b><span>נִכְנַס פְּנִימָה</span></div>
+      </div>
+      <button class="go" id="againBtn">↺ צְפִיָּה שׁוּב</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const NS='http://www.w3.org/2000/svg';
+const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const seg=(T,a,b)=>clamp((T-a)/(b-a),0,1);
+const G=400; // ground line
+
+/* ---------- story timeline (seconds) ---------- */
+const STOPS=[
+  {at:5.1, bubble:{show:4.7,hide:5.9,x:740,y:150,html:'דָּן <b>חָרַד</b> מֵהַנָּדָל'}},
+  {at:6.5, bubble:{show:6.0,hide:7.0,x:740,y:150,html:'דָּן <b>חָשַׁשׁ</b> שֶׁהַנָּדָל יִפְגַּע בּוֹ'}},
+  {at:9.5, bubble:{show:9.0,hide:10.5,x:430,y:24,cap:true,html:'הַנָּדָל <b>חָדַר</b> לָאֲדָמָה'}},
+];
+const END=11.6;
+const PACE=0.62; /* story speed: about 19 seconds of animation, 30 with the stops */
+
+/* ---------- flowers (static) ---------- */
+[[60,'#EF5B4F'],[180,'#FFC52E'],[520,'#7A4FD6'],[860,'#EF5B4F'],[930,'#FFC52E']].forEach(([x,c])=>{
+  const f=$('#flowers');el('path',{d:`M${x} 392 V370`,stroke:'#3E8E44','stroke-width':3},f);
+  for(let k=0;k<5;k++){const a=k*Math.PI*2/5;el('circle',{cx:x+Math.cos(a)*6,cy:366+Math.sin(a)*6,r:5,fill:c},f)}el('circle',{cx:x,cy:366,r:4,fill:'#FFF4B8'},f)});
+
+/* ---------- centipede: body follows the head along a path ---------- */
+const N=11,SP=27,X0=-260,S1=590,R=62,K=1.55; /* K: size of the centipede */
+function pathAt(s){ // point and unit tangent at arc length s
+  if(s<=S1)return{x:X0+s,y:G-34,tx:1,ty:0};
+  const u=s-S1,q=Math.PI/2*R;
+  if(u<=q){const th=u/R;return{x:X0+S1+R*Math.sin(th),y:G-34+R*(1-Math.cos(th)),tx:Math.cos(th),ty:Math.sin(th)}}
+  return{x:X0+S1+R,y:G-34+R+(u-q),tx:0,ty:1};
+}
+function headS(T){
+  if(T<1.2)return 0;
+  if(T<3.8)return lerp(0,560,ease(seg(T,1.2,3.8)));
+  if(T<7.5)return 560;
+  return lerp(560,560+30+Math.PI/2*R+N*SP+70,ease(seg(T,7.5,9.1)));
+}
+const centi=$('#centi'),parts=[];
+for(let i=N-1;i>=0;i--){
+  const g=el('g',{},centi);
+  const legs=[0,1,2,3].map(()=>el('line',{stroke:'#F3C36B','stroke-width':5.5,'stroke-linecap':'round'},g));
+  const body=el('circle',{r:i===0?23:19.5,fill:i===0?'#7A3E14':'#D9792B',stroke:'#6B3410','stroke-width':2.5},g);
+  const stripe=i===0?null:el('line',{stroke:'#8A4A1A','stroke-width':4.5,'stroke-linecap':'round'},g);
+  parts[i]={g,legs,body,stripe};
+}
+const headDeco=el('g',{},centi);
+const ant1=el('path',{fill:'none',stroke:'#6B3410','stroke-width':4,'stroke-linecap':'round'},headDeco);
+const ant2=el('path',{fill:'none',stroke:'#6B3410','stroke-width':3,'stroke-linecap':'round'},headDeco);
+const fang1=el('path',{fill:'none',stroke:'#E2483D','stroke-width':5.5,'stroke-linecap':'round'},headDeco);
+const fang2=el('path',{fill:'none',stroke:'#E2483D','stroke-width':5.5,'stroke-linecap':'round'},headDeco);
+const eyeW=el('circle',{r:5.5,fill:'#fff'},headDeco),eyeP=el('circle',{r:2.8,fill:'#16324F'},headDeco);
+function drawCenti(T){
+  const s=headS(T),moving=(T>1.2&&T<3.8)||(T>7.5&&T<9.1);
+  const scared=T>6.9&&T<7.6,shake=scared?Math.sin(T*80)*2.5:0;
+  for(let i=0;i<N;i++){
+    const p=pathAt(s-i*SP),nx=-p.ty,ny=p.tx; // normal points "down" for a right-moving body
+    const bob=(moving?Math.sin(T*14-i*.8)*2:Math.sin(T*3-i*.5)*.8)*K;
+    const cx=p.x+nx*bob+shake,cy=p.y+ny*bob;
+    const {body,legs,stripe}=parts[i];
+    body.setAttribute('cx',cx);body.setAttribute('cy',cy);
+    if(stripe){stripe.setAttribute('x1',cx-nx*16);stripe.setAttribute('y1',cy-ny*16);stripe.setAttribute('x2',cx+nx*16);stripe.setAttribute('y2',cy+ny*16)}
+    const ph=(moving?T*16:T*2)-i*.9;
+    legs.forEach((l,k)=>{const side=k<2?1:-1,off=(k%2?6:-6),w=Math.sin(ph+(k%2?Math.PI:0))*(moving?11:3);
+      const bx=cx+p.tx*off,by=cy+p.ty*off,len=i===0?0:30;
+      l.setAttribute('x1',bx);l.setAttribute('y1',by);l.setAttribute('x2',bx+nx*len*side*(side>0?1:.55)+p.tx*w);l.setAttribute('y2',by+ny*len*side*(side>0?1:.55)+p.ty*w);
+      l.setAttribute('opacity',side>0?1:.55)});
+    if(i===0){
+      const hx=cx,hy=cy,tx=p.tx*K,ty=p.ty*K,nx2=nx*K,ny2=ny*K,w=Math.sin(T*6)*4;
+      ant1.setAttribute('d',`M${hx+tx*10-nx2*6} ${hy+ty*10-ny2*6} q${tx*18-nx2*14} ${ty*18-ny2*14} ${tx*30-nx2*26+w} ${ty*30-ny2*26}`);
+      ant2.setAttribute('d',`M${hx+tx*10-nx2*2} ${hy+ty*10-ny2*2} q${tx*22-nx2*6} ${ty*22-ny2*6} ${tx*38-nx2*12-w} ${ty*38-ny2*12}`);
+      fang1.setAttribute('d',`M${hx+tx*12+nx2*6} ${hy+ty*12+ny2*6} q${tx*8} ${ty*8} ${tx*6+nx2*8} ${ty*6+ny2*8}`);
+      fang2.setAttribute('d',`M${hx+tx*12+nx2*1} ${hy+ty*12+ny2*1} q${tx*10} ${ty*10} ${tx*10+nx2*6} ${ty*10+ny2*6}`);
+      eyeW.setAttribute('r',(scared?7:5.5)*K);eyeP.setAttribute('r',(scared?2:2.8)*K);
+      eyeW.setAttribute('cx',hx+tx*5-nx2*5);eyeW.setAttribute('cy',hy+ty*5-ny2*5);
+      eyeP.setAttribute('cx',hx+tx*7-nx2*5);eyeP.setAttribute('cy',hy+ty*7-ny2*5);
+    }
+  }
+}
+
+/* ---------- hole, mound and flying dirt ---------- */
+const HX=X0+S1+R;
+const hole=el('ellipse',{cx:HX,cy:G+4,rx:0,ry:0,fill:'#4A2E16'},$('#hole'));
+const mound=el('path',{fill:'#7A512A'},$('#hole'));
+const dirt=[...Array(26)].map((_,k)=>({c:el('circle',{r:3+(k%3),fill:k%2?'#7A512A':'#A87445'},$('#dirt')),b:7.55+k*.055,vx:(k%2?1:-1)*(40+((k*37)%60)),vy:-(160+((k*53)%120))}));
+function drawDirt(T){
+  const h=seg(T,7.6,8.0);hole.setAttribute('rx',32*h);hole.setAttribute('ry',9*h);
+  const m=seg(T,7.8,9.0)*16;mound.setAttribute('d',m?`M${HX-46} ${G+4} Q${HX-30} ${G-m} ${HX-20} ${G+2} M${HX+20} ${G+2} Q${HX+32} ${G-m*.9} ${HX+50} ${G+4}Z`:'');
+  dirt.forEach(d=>{const t=T-d.b;if(t<0||t>.75||T>9.3){d.c.setAttribute('opacity',0);return}
+    d.c.setAttribute('opacity',1);d.c.setAttribute('cx',HX+d.vx*t);d.c.setAttribute('cy',G+d.vy*t+320*t*t)});
+}
+
+/* ---------- Dan ---------- */
+const dan=$('#dan');
+const D={};
+D.legL=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':16,'stroke-linecap':'round'},dan);
+D.legR=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':16,'stroke-linecap':'round'},dan);
+D.shoeL=el('ellipse',{rx:15,ry:8,fill:'#E2483D'},dan);D.shoeR=el('ellipse',{rx:15,ry:8,fill:'#E2483D'},dan);
+D.shorts=el('path',{fill:'#2F8FD8'},dan);
+D.armL=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':13,'stroke-linecap':'round','stroke-linejoin':'round'},dan);
+D.armR=el('path',{fill:'none',stroke:'#F2C29B','stroke-width':13,'stroke-linecap':'round','stroke-linejoin':'round'},dan);
+D.shirt=el('path',{fill:'#2FAE70'},dan);
+D.head=el('circle',{r:32,fill:'#F2C29B'},dan);
+D.hair=el('path',{fill:'#2B1B10'},dan);
+D.eyeLW=el('circle',{fill:'#fff'},dan);D.eyeRW=el('circle',{fill:'#fff'},dan);
+D.eyeL=el('circle',{fill:'#16324F'},dan);D.eyeR=el('circle',{fill:'#16324F'},dan);
+D.lidL=el('path',{fill:'none',stroke:'#16324F','stroke-width':3.5,'stroke-linecap':'round'},dan);D.lidR=el('path',{fill:'none',stroke:'#16324F','stroke-width':3.5,'stroke-linecap':'round'},dan);
+D.browL=el('path',{fill:'none',stroke:'#2B1B10','stroke-width':4,'stroke-linecap':'round'},dan);D.browR=el('path',{fill:'none',stroke:'#2B1B10','stroke-width':4,'stroke-linecap':'round'},dan);
+D.mouth=el('path',{fill:'none',stroke:'#16324F','stroke-width':3.5,'stroke-linecap':'round'},dan);
+D.cheekL=el('circle',{r:6,fill:'#F29C9C',opacity:.6},dan);D.cheekR=el('circle',{r:6,fill:'#F29C9C',opacity:.6},dan);
+D.sweat=el('path',{fill:'#7CC6F5'},dan);
+function danX(T){if(T<2.6)return lerp(1050,720,ease(seg(T,0,2.6)));if(T<5.2)return 720;return lerp(720,780,ease(seg(T,5.2,5.9)))}
+function drawDan(T){
+  const scared=T>4.2&&T<9.7,relieved=T>=9.7;
+  const walking=T<2.6||(T>5.2&&T<5.9);
+  const x=danX(T)+(scared?Math.sin(T*70)*2.2:0),y=G+6;
+  const sw=walking?Math.sin(T*(T<2.6?9:12))*16:0;
+  // legs: hip at y-70, foot at y
+  const hipY=y-74;
+  D.legL.setAttribute('d',`M${x-12} ${hipY} L${x-12+sw} ${y-8}`);D.legR.setAttribute('d',`M${x+12} ${hipY} L${x+12-sw} ${y-8}`);
+  D.shoeL.setAttribute('cx',x-16+sw);D.shoeL.setAttribute('cy',y-4);D.shoeR.setAttribute('cx',x+8-sw);D.shoeR.setAttribute('cy',y-4);
+  D.shorts.setAttribute('d',`M${x-30} ${hipY-22} h60 l4 34 h-26 l-4 -12 l-4 12 h-26z`);
+  D.shirt.setAttribute('d',`M${x-34} ${hipY-96} q34 -16 68 0 l6 76 h-80z`);
+  const shY=hipY-86;
+  if(scared){ // hands up near the face
+    D.armL.setAttribute('d',`M${x-30} ${shY} L${x-48} ${shY-26} L${x-34} ${shY-56}`);D.armR.setAttribute('d',`M${x+30} ${shY} L${x+48} ${shY-26} L${x+34} ${shY-56}`);
+  }else if(relieved){
+    const wave=Math.sin(T*8)*10;
+    D.armL.setAttribute('d',`M${x-30} ${shY} L${x-46} ${shY+30} L${x-48} ${shY+56}`);D.armR.setAttribute('d',`M${x+30} ${shY} L${x+56} ${shY-24} L${x+66+wave} ${shY-56}`);
+  }else{
+    D.armL.setAttribute('d',`M${x-30} ${shY} L${x-44-sw*.4} ${shY+34} L${x-46-sw*.6} ${shY+60}`);D.armR.setAttribute('d',`M${x+30} ${shY} L${x+44+sw*.4} ${shY+34} L${x+46+sw*.6} ${shY+60}`);
+  }
+  const hy=hipY-140,hx=x;
+  D.head.setAttribute('cx',hx);D.head.setAttribute('cy',hy);
+  D.hair.setAttribute('d',`M${hx-34} ${hy-2} q2 -38 36 -36 q34 0 32 34 q-10 -14 -26 -16 q-6 10 -18 10 q-12 0 -24 8z`);
+  D.cheekL.setAttribute('cx',hx-20);D.cheekL.setAttribute('cy',hy+12);D.cheekR.setAttribute('cx',hx+20);D.cheekR.setAttribute('cy',hy+12);
+  const ex=13,ey=hy-2;
+  if(scared){
+    [[D.eyeLW,-ex],[D.eyeRW,ex]].forEach(([e,o])=>{e.setAttribute('cx',hx+o);e.setAttribute('cy',ey);e.setAttribute('r',8.5)});
+    [[D.eyeL,-ex],[D.eyeR,ex]].forEach(([e,o])=>{e.setAttribute('cx',hx+o-3);e.setAttribute('cy',ey+1);e.setAttribute('r',3.6)});
+    D.lidL.setAttribute('d','');D.lidR.setAttribute('d','');
+    D.browL.setAttribute('d',`M${hx-22} ${ey-16} q8 -8 16 -2`);D.browR.setAttribute('d',`M${hx+22} ${ey-16} q-8 -8 -16 -2`);
+    D.mouth.setAttribute('d',`M${hx-6} ${hy+18} a6 7 0 1 0 12 0 a6 7 0 1 0 -12 0`);
+    D.sweat.setAttribute('d',`M${hx+30} ${hy-20} q6 10 0 14 q-6 -4 0 -14z`);
+  }else if(relieved){
+    [D.eyeLW,D.eyeRW,D.eyeL,D.eyeR].forEach(e=>e.setAttribute('r',0));
+    D.lidL.setAttribute('d',`M${hx-ex-6} ${ey} q6 6 12 0`);D.lidR.setAttribute('d',`M${hx+ex-6} ${ey} q6 6 12 0`);
+    D.browL.setAttribute('d','');D.browR.setAttribute('d','');
+    D.mouth.setAttribute('d',`M${hx-12} ${hy+13} q12 12 24 0`);D.sweat.setAttribute('d','');
+  }else{
+    [D.eyeLW,D.eyeRW].forEach(e=>e.setAttribute('r',0));
+    [[D.eyeL,-ex],[D.eyeR,ex]].forEach(([e,o])=>{e.setAttribute('cx',hx+o);e.setAttribute('cy',ey);e.setAttribute('r',4)});
+    D.lidL.setAttribute('d','');D.lidR.setAttribute('d','');D.browL.setAttribute('d','');D.browR.setAttribute('d','');
+    D.mouth.setAttribute('d',`M${hx-11} ${hy+13} q11 9 22 0`);D.sweat.setAttribute('d','');
+  }
+  return {headX:hx,headY:hy};
+}
+
+/* ---------- "!" marks ---------- */
+const marks=$('#marks');
+const bangDan=el('text',{'font-family':'Secular One, Arial','font-size':64,fill:'#E2483D','text-anchor':'middle'},marks);bangDan.textContent='!';
+const bangCenti=el('text',{'font-family':'Secular One, Arial','font-size':48,fill:'#E2483D','text-anchor':'middle'},marks);bangCenti.textContent='!';
+function drawMarks(T,h){
+  const a=seg(T,4.1,4.3)*(1-seg(T,4.65,4.8));bangDan.setAttribute('x',h.headX+44);bangDan.setAttribute('y',h.headY-30);bangDan.setAttribute('opacity',a);
+  const p=pathAt(headS(T)),b=seg(T,6.9,7.05)*(1-seg(T,7.5,7.6));bangCenti.setAttribute('x',p.x+6);bangCenti.setAttribute('y',p.y-30);bangCenti.setAttribute('opacity',b);
+}
+
+/* ---------- bubbles ---------- */
+const bubbles=$('#bubbles');
+const bubbleEls=STOPS.map(s=>{const b=document.createElement('div');b.className='bubble'+(s.bubble.cap?' cap':'');b.innerHTML=s.bubble.html;
+  b.style.left=(s.bubble.x/960*100)+'%';b.style.top=(s.bubble.y/540*100)+'%';b.hidden=true;bubbles.appendChild(b);return b});
+function drawBubbles(T){
+  STOPS.forEach((s,i)=>{const on=T>=s.bubble.show&&T<s.bubble.hide;if(on&&bubbleEls[i].hidden){bubbleEls[i].hidden=false;sfx.pop()}else if(!on)bubbleEls[i].hidden=true});
+}
+
+/* ---------- sound ---------- */
+let ac,sound=true;
+function tone(f,d=.15,type='sine',vol=.15,when=0,slide){if(!sound)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const t=ac.currentTime+when,o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d)}catch(e){}}
+function noise(d,vol,when=0,freq=600){if(!sound)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const n=ac.createBuffer(1,ac.sampleRate*d,ac.sampleRate),x=n.getChannelData(0);for(let i=0;i<x.length;i++)x[i]=Math.random()*2-1;
+  const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain(),t=ac.currentTime+when;s.buffer=n;f.type='lowpass';f.frequency.value=freq;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(f).connect(g).connect(ac.destination);s.start(t)}catch(e){}}
+const sfx={pop(){tone(520,.12,'triangle',.15,0,900)},gasp(){tone(700,.25,'triangle',.12,0,300)},boing(){tone(300,.3,'sine',.12,0,900)},
+  dig(){for(let k=0;k<6;k++)noise(.09,.18,k*.17,500)},yay(){[523,659,784].forEach((f,i)=>tone(f,.2,'triangle',.14,i*.1))}};
+const cues=[[4.1,'gasp'],[6.9,'boing'],[7.6,'dig'],[9.75,'yay']];
+
+/* ---------- player ---------- */
+let T=0,playing=false,stopIdx=0,last=0,started=false;
+function render(){const h=drawDan(T);drawCenti(T);drawDirt(T);drawMarks(T,h);drawBubbles(T)}
+function frame(now){
+  if(playing){
+    const dt=Math.min(.05,(now-last)/1000);const prev=T;T+=dt*PACE;
+    cues.forEach(([at,name])=>{if(prev<at&&T>=at)sfx[name]()});
+    const s=STOPS[stopIdx];
+    if(s&&T>=s.at){T=s.at;playing=false;stopIdx++;$('#contBtn').hidden=false;$('#contBtn').focus({preventScroll:true});setPlayIcon()}
+    if(T>=END){T=END;playing=false;$('#endScr').hidden=false;setPlayIcon()}
+  }
+  last=now;render();requestAnimationFrame(frame);
+}
+function setPlayIcon(){const b=$('#playBtn');b.textContent=playing?'⏸':'▶';b.setAttribute('aria-label',playing?'הַשְׁהָיָה':'נִגּוּן')}
+function play(){if(T>=END)return;playing=true;$('#contBtn').hidden=true;setPlayIcon()}
+function restart(){T=0;stopIdx=0;$('#endScr').hidden=true;$('#startScr').hidden=true;bubbleEls.forEach(b=>b.hidden=true);play()}
+$('#goBtn').onclick=()=>{tone(1,.01);started=true;restart()};
+$('#againBtn').onclick=restart;$('#restartBtn').onclick=()=>{started=true;restart()};
+$('#contBtn').onclick=play;
+$('#playBtn').onclick=()=>{if(!started){started=true;return restart()}playing?(playing=false,setPlayIcon()):play()};
+$('#muteBtn').onclick=()=>{sound=!sound;$('#muteBtn').textContent=sound?'🔔':'🔕'};
+$('#fullBtn').onclick=()=>{const f=$('.frame');try{document.fullscreenElement?document.exitFullscreen():(f.requestFullscreen||f.webkitRequestFullscreen).call(f)}catch(e){}};
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='Enter'){if(!started)return;e.preventDefault();if(!$('#contBtn').hidden||!playing)play();else{playing=false;setPlayIcon()}}});
+/* ?auto: continue by itself after each bubble (used to record a video file) */
+if(/[?&]auto/.test(location.search)){const go=()=>{started=true;restart()};setTimeout(go,300);
+  document.body.classList.add('auto');
+  setInterval(()=>{if(!$('#contBtn').hidden&&!playing){$('#contBtn').hidden=true;setTimeout(play,3500)}},100)}
+T=2.6;render();setPlayIcon();T=0;$('#playBtn').textContent='▶';
+requestAnimationFrame(t=>{last=t;requestAnimationFrame(frame)});
+</script>
+</body>
+</html>
