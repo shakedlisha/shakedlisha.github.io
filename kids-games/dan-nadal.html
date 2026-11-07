@@ -24,6 +24,7 @@ button:focus-visible{outline:4px solid var(--ink);outline-offset:3px}
 .top{width:min(100%,calc((100vh - 120px)*16/9),1200px);display:flex;align-items:center;justify-content:space-between;gap:10px}
 .top h1{font-family:var(--display);font-weight:400;font-size:clamp(20px,3vw,30px);margin:0;color:var(--frame);line-height:1.4}
 .tools{display:flex;gap:6px}
+.icon[aria-pressed="true"]{background:var(--sun);border-color:var(--sunDeep)}
 .icon{background:var(--card);border:3px solid #D7E6F2;border-radius:14px;height:44px;min-width:44px;padding:0 10px;font-size:18px;font-weight:600;display:grid;place-items:center}
 .frame{width:min(100%,calc((100vh - 120px)*16/9),1200px);border-radius:26px;padding:12px;background-color:var(--frame);
   background-image:radial-gradient(circle,var(--bulb) 0 4px,transparent 5px);background-size:24px 24px;background-position:2px 2px}
@@ -56,6 +57,7 @@ body.auto{padding:0;background:#2F8FD8}body.auto .top,body.auto .start,body.auto
   <div class="tools">
     <button class="icon" id="playBtn" aria-label="הַשְׁהָיָה" title="הַשְׁהָיָה">⏸</button>
     <button class="icon" id="restartBtn" aria-label="מֵהַהַתְחָלָה" title="מֵהַהַתְחָלָה">↺</button>
+    <button class="icon" id="bubBtn" aria-pressed="false" title="הַצְגַת בּוּעוֹת">💬 בּוּעוֹת</button>
     <button class="icon" id="muteBtn" aria-label="צְלִילִים" title="צְלִילִים">🔔</button>
     <button class="icon" id="fullBtn" aria-label="מָסָךְ מָלֵא" title="מָסָךְ מָלֵא">⛶</button>
   </div>
@@ -88,8 +90,8 @@ body.auto{padding:0;background:#2F8FD8}body.auto .top,body.auto .start,body.auto
     <button class="cont" id="contBtn" hidden>▶ הַמְשֵׁךְ</button>
     <div class="start" id="startScr">
       <h2>דָּן וְהַנָּדָל</h2>
-      <button class="go" id="goBtn">▶ צְפִיָּה</button>
-      <p class="hint">הסרטון עוצר בכל בועה. ממשיכים בכפתור "הַמְשֵׁךְ" או במקש רווח.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center"><button class="go" id="goBtn">▶ צְפִיָּה</button><button class="go" id="goBubBtn" style="background:#fff">💬 צְפִיָּה עִם בּוּעוֹת</button></div>
+      <p class="hint">אפשר להפעיל את הבועות בכל רגע בכפתור "💬 בּוּעוֹת" למעלה. עם בועות, הסרטון עוצר בכל בועה וממשיכים ב"הַמְשֵׁךְ" או במקש רווח.</p>
     </div>
     <div class="end" id="endScr" hidden>
       <h2>הַסּוֹף</h2>
@@ -274,8 +276,9 @@ function drawMarks(T,h){
 const bubbles=$('#bubbles');
 const bubbleEls=STOPS.map(s=>{const b=document.createElement('div');b.className='bubble'+(s.bubble.cap?' cap':'');b.innerHTML=s.bubble.html;
   b.style.left=(s.bubble.x/960*100)+'%';b.style.top=(s.bubble.y/540*100)+'%';b.hidden=true;bubbles.appendChild(b);return b});
+let showBubbles=/[?&](bubbles|auto)/.test(location.search)&&!/[?&]nobub/.test(location.search);
 function drawBubbles(T){
-  STOPS.forEach((s,i)=>{const on=T>=s.bubble.show&&T<s.bubble.hide;if(on&&bubbleEls[i].hidden){bubbleEls[i].hidden=false;sfx.pop()}else if(!on)bubbleEls[i].hidden=true});
+  STOPS.forEach((s,i)=>{const on=showBubbles&&T>=s.bubble.show&&T<s.bubble.hide;if(on&&bubbleEls[i].hidden){bubbleEls[i].hidden=false;sfx.pop()}else if(!on)bubbleEls[i].hidden=true});
 }
 
 /* ---------- sound ---------- */
@@ -296,7 +299,8 @@ function frame(now){
     const dt=Math.min(.05,(now-last)/1000);const prev=T;T+=dt*PACE;
     cues.forEach(([at,name])=>{if(prev<at&&T>=at)sfx[name]()});
     const s=STOPS[stopIdx];
-    if(s&&T>=s.at){T=s.at;playing=false;stopIdx++;$('#contBtn').hidden=false;$('#contBtn').focus({preventScroll:true});setPlayIcon()}
+    if(s&&T>=s.at&&!showBubbles)stopIdx++;
+    else if(s&&T>=s.at){T=s.at;playing=false;stopIdx++;$('#contBtn').hidden=false;$('#contBtn').focus({preventScroll:true});setPlayIcon()}
     if(T>=END){T=END;playing=false;$('#endScr').hidden=false;setPlayIcon()}
   }
   last=now;render();requestAnimationFrame(frame);
@@ -304,7 +308,11 @@ function frame(now){
 function setPlayIcon(){const b=$('#playBtn');b.textContent=playing?'⏸':'▶';b.setAttribute('aria-label',playing?'הַשְׁהָיָה':'נִגּוּן')}
 function play(){if(T>=END)return;playing=true;$('#contBtn').hidden=true;setPlayIcon()}
 function restart(){T=0;stopIdx=0;$('#endScr').hidden=true;$('#startScr').hidden=true;bubbleEls.forEach(b=>b.hidden=true);play()}
-$('#goBtn').onclick=()=>{tone(1,.01);started=true;restart()};
+function setBubbles(on){showBubbles=on;const b=$('#bubBtn');b.setAttribute('aria-pressed',on);b.title=on?'הַסְתָּרַת הַבּוּעוֹת':'הַצְגַת בּוּעוֹת';
+  if(!on&&!$('#contBtn').hidden)play();}
+$('#bubBtn').onclick=()=>setBubbles(!showBubbles);
+$('#goBtn').onclick=()=>{tone(1,.01);setBubbles(false);started=true;restart()};
+$('#goBubBtn').onclick=()=>{tone(1,.01);setBubbles(true);started=true;restart()};
 $('#againBtn').onclick=restart;$('#restartBtn').onclick=()=>{started=true;restart()};
 $('#contBtn').onclick=play;
 $('#playBtn').onclick=()=>{if(!started){started=true;return restart()}playing?(playing=false,setPlayIcon()):play()};
@@ -315,7 +323,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='Enter'){if
 if(/[?&]auto/.test(location.search)){const go=()=>{started=true;restart()};setTimeout(go,300);
   document.body.classList.add('auto');
   setInterval(()=>{if(!$('#contBtn').hidden&&!playing){$('#contBtn').hidden=true;setTimeout(play,3500)}},100)}
-T=2.6;render();setPlayIcon();T=0;$('#playBtn').textContent='▶';
+setBubbles(showBubbles);T=2.6;render();setPlayIcon();T=0;$('#playBtn').textContent='▶';
 requestAnimationFrame(t=>{last=t;requestAnimationFrame(frame)});
 </script>
 </body>
