@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html lang="he"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>סטודיו המשחקים</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -210,10 +210,84 @@ const games=DATA.games;
 let artifactCap=null,sample=null,user=null,canEdit=false,dirty=false,restoreSel=null;
 const main=$('#main');
 
-function pageHTML(){
+/* ---------------- public site on GitHub Pages: games live in kids-games/games.json ---------------- */
+const PUBLIC_URL='https://shakedlisha.github.io/kids-games/';
+const GH={owner:'shakedlisha',repo:'shakedlisha.github.io',path:'kids-games/games.json',branch:'master'};
+const GH_API=`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
+let MODE='web',ghToken=null,ghSha=null;
+function packData(){
   const out=structuredClone(DATA),images={},seen=new Map();
   out.games.forEach(g=>(g.pages||[]).forEach(p=>{if(p.img&&p.img.startsWith('data:')){let k=seen.get(p.img);if(k==null){k=String(seen.size);seen.set(p.img,k);images[k]=p.img}p.img='img:'+k}}));
-  out.images=images;
+  out.images=images;return out;
+}
+function unpackData(obj){
+  if(!obj||!Array.isArray(obj.games))return false;
+  const im=obj.images||{};
+  obj.games.forEach(g=>(g.pages||[]).forEach(p=>{if(p.img&&p.img.startsWith('img:'))p.img=im[p.img.slice(4)]||''}));
+  games.splice(0,games.length,...obj.games);return true;
+}
+const ghHeaders=(accept)=>({Authorization:'Bearer '+ghToken,Accept:accept||'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
+/* read the newest games straight from the repository (fresh, no waiting for the site to rebuild) */
+async function ghLoad(){
+  const meta=await fetch(GH_API+'?ref='+GH.branch+'&t='+Date.now(),{headers:ghHeaders(),cache:'no-store'});
+  if(meta.status===404){ghSha=null;return 'ok'}
+  if(meta.status===401||meta.status===403)return 'auth';
+  if(!meta.ok)return 'net';
+  ghSha=(await meta.json()).sha;
+  const raw=await fetch(GH_API+'?ref='+GH.branch+'&t='+Date.now(),{headers:ghHeaders('application/vnd.github.raw+json'),cache:'no-store'});
+  if(!raw.ok)return 'net';
+  try{unpackData(JSON.parse(await raw.text()))}catch(e){}
+  return 'ok';
+}
+function toBase64(str){const bytes=new TextEncoder().encode(str);let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(bin)}
+async function ghSave(){
+  const b=$('#saveBar');b.hidden=false;b.innerHTML='<span role="status">שומר ב־GitHub…</span>';
+  try{
+    const body={message:'עדכון משחקים מהסטודיו',content:toBase64(JSON.stringify(packData())),branch:GH.branch};
+    if(ghSha)body.sha=ghSha;
+    const r=await fetch(GH_API,{method:'PUT',headers:{...ghHeaders(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){ghSha=(await r.json()).content.sha;dirty=false;showSaveBar('נשמר ✓ האתר הציבורי יתעדכן בעוד כדקה');return}
+    if(r.status===409||r.status===422){dirty=false;E=null;await ghLoad();route();showSaveBar('המשחקים שונו ממקום אחר בינתיים. טענתי את הגרסה החדשה, ואפשר לערוך שוב.');return}
+    if(r.status===401||r.status===403){showSaveBar('המפתח של GitHub לא תקף יותר או בלי הרשאת כתיבה. צאו ממצב עריכה והיכנסו עם מפתח חדש.');return}
+    showSaveBar('השמירה לא הצליחה. נסו שוב.');
+  }catch(e){showSaveBar('אין חיבור לאינטרנט, או ש־GitHub לא זמין כרגע. נסו שוב.')}
+}
+function renderLogin(msg){
+  view='login';closePlayer();
+  main.innerHTML=`<div class="libhead"><div><h1>כניסת מורה</h1><p>כדי ליצור ולערוך משחקים באתר צריך מפתח גישה מ־GitHub. עושים את זה פעם אחת בכל מחשב.</p></div>
+    <button class="btn" id="lgBack">→ חזרה למשחקים</button></div>
+  <div class="note" style="display:flex;flex-direction:column;gap:14px;max-width:720px">
+    <ol style="margin:0;padding-inline-start:22px;display:flex;flex-direction:column;gap:6px">
+      <li>פותחים את <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">יצירת מפתח גישה ב־GitHub</a> (מחוברים לחשבון shakedlisha).</li>
+      <li>ב־Token name כותבים <b>kids-games</b>, וב־Expiration בוחרים תוקף, למשל שנה.</li>
+      <li>ב־Repository access בוחרים <b>Only select repositories</b> ואת המאגר <b>shakedlisha.github.io</b>.</li>
+      <li>ב־Permissions, תחת Repository permissions, מגדירים <b>Contents</b> ל־<b>Read and write</b>.</li>
+      <li>לוחצים <b>Generate token</b>, מעתיקים את המפתח ומדביקים אותו כאן.</li>
+    </ol>
+    <div class="field"><label for="tok">מפתח הגישה</label><input type="text" id="tok" autocomplete="off" spellcheck="false" dir="ltr" placeholder="github_pat_…" style="font-size:16px"></div>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="remember" checked style="width:20px;height:20px"> לזכור אותי במחשב הזה</label>
+    <p class="muted" style="margin:0;font-size:14px">המפתח נשמר רק בדפדפן הזה ונשלח רק ל־GitHub. במחשב משותף בכיתה כדאי לבטל את "לזכור אותי".</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" id="lgGo">כניסה</button><span id="lgMsg" class="${msg?'warn':'muted'}" role="status">${esc(msg||'')}</span></div>
+  </div>`;
+  $('#lgBack').onclick=()=>go('');
+  $('#lgGo').onclick=async()=>{
+    const v=$('#tok').value.trim();if(!v){$('#lgMsg').textContent='צריך להדביק מפתח.';return}
+    $('#lgMsg').className='muted';$('#lgMsg').textContent='בודק את המפתח…';ghToken=v;
+    const res=await ghLoad().catch(()=>'net');
+    if(res!=='ok'){ghToken=null;$('#lgMsg').className='warn';$('#lgMsg').textContent=res==='auth'?'המפתח לא מתאים. בדקו שבחרתם את המאגר shakedlisha.github.io ואת ההרשאה Contents: Read and write.':'אין חיבור ל־GitHub כרגע. נסו שוב.';return}
+    canEdit=true;
+    try{if($('#remember').checked)localStorage.setItem('kg-token',v);else sessionStorage.setItem('kg-token',v)}catch(e){}
+    go('');renderLibrary();
+  };
+}
+function logout(){
+  if(dirty&&!$('#logout').classList.contains('on')){const b=$('#logout');b.classList.add('on','danger');b.textContent='יש שינויים שלא נשמרו. לצאת בכל זאת?';return}
+  try{localStorage.removeItem('kg-token');sessionStorage.removeItem('kg-token')}catch(e){}
+  ghToken=null;canEdit=false;dirty=false;$('#saveBar').hidden=true;renderLibrary();
+}
+
+function pageHTML(){
+  const out=packData();
   const json=JSON.stringify(out).replace(/</g,'\\u003c');
   return '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>'+SKELETON_CSS+'</style></head><body>'
     +'<title>סטודיו המשחקים</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n'+FONTS+'\n<style id="studio-css">'+CSS_TEXT+'</style>\n'+SHELL_HTML
@@ -222,8 +296,18 @@ function pageHTML(){
 async function boot(){
   try{const r=JSON.parse(sessionStorage.getItem('studio-return')||'null');sessionStorage.removeItem('studio-return');
     if(r&&r.hash){history.replaceState(null,'',r.hash);restoreSel=r.sel}}catch(e){}
+  const cl=window.claude;
+  if(!cl||!cl.use){
+    /* public site: newest games from games.json; a signed-in teacher reads them straight from GitHub */
+    MODE='web';
+    try{const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),5000);
+      const r=await fetch('games.json?t='+Date.now(),{cache:'no-store',signal:ctl.signal});clearTimeout(t);if(r.ok)unpackData(await r.json())}catch(e){}
+    try{ghToken=localStorage.getItem('kg-token')||sessionStorage.getItem('kg-token')}catch(e){}
+    if(ghToken){const res=await ghLoad().catch(()=>'net');if(res==='ok')canEdit=true;else{if(res==='auth'){try{localStorage.removeItem('kg-token');sessionStorage.removeItem('kg-token')}catch(e){}}ghToken=null}}
+    route();return;
+  }
+  MODE='claude';
   route();
-  const cl=window.claude;if(!cl||!cl.use)return;
   [artifactCap,user,sample]=await Promise.all(['artifact','user','sample'].map(n=>cl.use(n).catch(()=>null)));
   if(user){try{canEdit=!!(await user.canEdit())}catch(e){}}
   if(!artifactCap)canEdit=false;
@@ -240,6 +324,7 @@ function showSaveBar(msg){
   if(msg==='נשמר ✓')setTimeout(()=>{if(!dirty)b.hidden=true},2500);
 }
 async function saveAll(){
+  if(MODE==='web')return ghSave();
   if(!artifactCap){showSaveBar('אי אפשר לשמור כאן.');return}
   try{sessionStorage.setItem('studio-return',JSON.stringify({hash:location.hash||'#',sel:E?E.sel:0}))}catch(e){}
   const b=$('#saveBar');b.hidden=false;b.innerHTML='<span role="status">שומר… העמוד ייטען מחדש בעוד רגע</span>';
@@ -265,13 +350,14 @@ function route(){
   closePlayer();view='library';renderLibrary();
 }
 addEventListener('hashchange',route);
-const gameLink=id=>(ARTIFACT_URL.startsWith('http')?ARTIFACT_URL:'')+'#play-'+id;
+const gameLink=id=>PUBLIC_URL+'#play-'+id;
 
 /* ---------------- library ---------------- */
 function renderLibrary(){
   view='library';
   const head=`<div class="libhead"><div><h1>סטודיו המשחקים</h1>
-    <p>${canEdit?'כאן יוצרים משחקים לכיתה: תמונה, שאלה ותשובות, או מילה שמסדרים מאותיות. אחרי שינוי לוחצים "שמירה".':'בחרו משחק ולחצו "משחקים".'}</p></div>
+    <p>${canEdit?'כאן יוצרים משחקים לכיתה: תמונה, שאלה ותשובות, או מילה שמסדרים מאותיות. אחרי שינוי לוחצים "שמירה"'+(MODE==='web'?', והאתר הציבורי מתעדכן תוך כדקה.':'.'):'בחרו משחק ולחצו "משחקים".'}</p>
+    ${MODE==='claude'&&canEdit?`<p class="note" style="margin-top:8px">🌐 הגרסה הציבורית נמצאת ב־<a href="${PUBLIC_URL}" target="_blank" rel="noopener">${PUBLIC_URL}</a>, ואפשר ליצור ולערוך משחקים גם שם. המשחקים כאן נפרדים מהמשחקים באתר.</p>`:''}</div>
     ${canEdit?'<button class="btn primary" id="newGame">＋ משחק חדש</button>':''}</div>`;
   let body;
   if(!games.length) body=`<div class="note empty"><div class="big">🎲</div><h2>עוד אין משחקים</h2>
@@ -284,7 +370,9 @@ function renderLibrary(){
         <div class="acts"><button class="btn sun" data-play="${g.id}">▶ משחקים</button>
         ${canEdit?`<button class="btn" data-edit="${g.id}">✏️ עריכה</button><button class="btn" data-link="${g.id}">🔗 קישור</button><button class="btn" data-dup="${g.id}">⧉ שכפול</button><button class="btn danger" data-del="${g.id}">🗑</button>`:''}</div>
         <div class="linkbox" id="lb-${g.id}" hidden></div></div></article>`}).join('')}</div>`;
-  main.innerHTML=head+body;
+  const foot=MODE==='web'?`<p style="margin-top:28px;text-align:center">${canEdit?'<button class="btn" id="logout">יציאה ממצב עריכה</button>':'<button class="btn" id="login">🔑 כניסת מורה</button>'}</p>`:'';
+  main.innerHTML=head+body+foot;
+  const lg=$('#login');if(lg)lg.onclick=()=>renderLogin();const lo=$('#logout');if(lo)lo.onclick=logout;
   main.querySelectorAll('#newGame,#newGame2').forEach(b=>b.onclick=createGame);
   main.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>go('#play-'+b.dataset.play));
   main.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>go('#edit-'+b.dataset.edit));
@@ -351,8 +439,9 @@ function renderEditor(){
             <span class="hint muted" id="imgMsg"></span>
             <input type="file" id="imgFile" accept="image/*" hidden></div></div></div>
       ${p.type==='build'?buildForm(p):chooseForm(p)}
-      <div class="niqqud"><button class="btn" id="autoNiq" ${sample?'':'disabled'}>✨ ניקוד אוטומטי לעמוד</button>
-        <span class="msg" id="niqMsg">${sample?'Claude מוסיף ניקוד לטקסטים בעמוד. כדאי לעבור על התוצאה.':'ניקוד אוטומטי לא זמין כאן. אפשר להקליד עם ניקוד או להדביק מ"נקדן".'}</span></div>
+      <div class="niqqud">${MODE==='web'?`<a class="btn" href="https://nakdan.dicta.org.il/" target="_blank" rel="noopener">✨ פתיחת הנקדן של דיקטה</a>
+        <span class="msg" id="niqMsg">מנקדים שם את הטקסט, מעתיקים ומדביקים לשדות כאן.</span>`:`<button class="btn" id="autoNiq" ${sample?'':'disabled'}>✨ ניקוד אוטומטי לעמוד</button>
+        <span class="msg" id="niqMsg">${sample?'Claude מוסיף ניקוד לטקסטים בעמוד. כדאי לעבור על התוצאה.':'ניקוד אוטומטי לא זמין כאן. אפשר להקליד עם ניקוד או להדביק מ"נקדן".'}</span>`}</div>
       <div class="pageacts">
         <button class="btn" id="mvUp" ${E.sel===0?'disabled':''}>↑ להזיז למעלה</button>
         <button class="btn" id="mvDn" ${E.sel===G.pages.length-1?'disabled':''}>↓ להזיז למטה</button>
@@ -420,7 +509,7 @@ function bindEditor(){
   $('#dupP').onclick=()=>addPage(structuredClone(p));
   $('#delP').onclick=e=>{const b=e.currentTarget;if(!b.classList.contains('on')){b.classList.add('on');b.textContent='למחוק את העמוד? כן';return}
     G.pages.splice(E.sel,1);E.sel=Math.max(0,E.sel-1);touch();renderEditor()};
-  $('#autoNiq').onclick=autoNiqqud;
+  const an=$('#autoNiq');if(an)an.onclick=autoNiqqud;
 }
 function addPage(pg){E.game.pages.splice(E.sel+1,0,pg);E.sel++;touch();renderEditor()}
 function movePage(d){const P=E.game.pages,i=E.sel,j=i+d;if(j<0||j>=P.length)return;[P[i],P[j]]=[P[j],P[i]];E.sel=j;touch();renderEditor()}
