@@ -232,8 +232,9 @@ function loadLocal(){
   let L=null;try{L=JSON.parse(localStorage.getItem('kg-local')||'null')}catch(e){}
   if(!L)return;
   HIDDEN=Array.isArray(L.hidden)?L.hidden:[];
+  HIDDEN=HIDDEN.filter(id=>!PUBLIC_IDS.has(id));
   for(const id of HIDDEN){const i=games.findIndex(x=>x.id===id);if(i>=0)games.splice(i,1)}
-  const mine=unpackGames(L);
+  const mine=unpackGames(L).filter(g=>!PUBLIC_IDS.has(g.id));
   for(let k=mine.length-1;k>=0;k--){const g=mine[k];g._local=true;const i=games.findIndex(x=>x.id===g.id);if(i>=0)games.splice(i,1);games.unshift(g)}
 }
 function localSave(){
@@ -262,7 +263,7 @@ async function readShared(hash){
   if(kind==='z')bytes=await pipeBytes(bytes,new DecompressionStream('deflate-raw'));
   const g=unpackGames(JSON.parse(new TextDecoder().decode(bytes)))[0];
   if(!g||!Array.isArray(g.pages))throw new Error('bad');
-  if(!/^[A-Za-z0-9]+$/.test(g.id||''))g.id=newId();
+  if(!/^[A-Za-z0-9]+$/.test(g.id||'')||PUBLIC_IDS.has(g.id))g.id=newId();
   g._local=true;
   const i=games.findIndex(x=>x.id===g.id);if(i>=0)games.splice(i,1);games.unshift(g);
   HIDDEN=HIDDEN.filter(x=>x!==g.id);localSave();
@@ -408,6 +409,7 @@ function route(){
   const h=location.hash.slice(1);const m=h.match(/^(play|edit)-([A-Za-z0-9]+)$/);
   const g=m&&games.find(x=>x.id===m[2]);
   if(g&&m[1]==='play')return startPlay(g,'library');
+  if(g&&m[1]==='edit'&&locked(g.id))return startPlay(g,'library');
   if(g&&m[1]==='edit'&&canEdit)return openEditor(g);
   if(g&&m[1]==='edit'){view='edit-wait';return}
   closePlayer();view='library';renderLibrary();
@@ -431,7 +433,7 @@ function renderLibrary(){
       return `<article class="gcard"><div class="thumb">${first?`<img src="${esc(imgSrc(first.img))}" alt="">`:'🎲'}</div>
         <div class="body"><h3>${esc(g.title||'משחק בלי שם')}</h3><div class="meta">${n} ${n===1?'עמוד':'עמודים'}${MODE==='web'&&g._local?' · <span class="badge">שמור במחשב הזה</span>':''}</div>
         <div class="acts"><button class="btn sun" data-play="${g.id}">▶ משחקים</button>
-        ${canEdit?`<button class="btn" data-edit="${g.id}">✏️ עריכה</button><button class="btn" data-link="${g.id}">🔗 קישור</button><button class="btn" data-dup="${g.id}">⧉ שכפול</button><button class="btn danger" data-del="${g.id}">🗑</button>`:''}</div>
+        ${locked(g.id)?`<button class="btn" data-link="${g.id}">🔗 קישור</button><span class="badge" title="המשחק נעול לעריכה">🔒 נעול</span>`:canEdit?`<button class="btn" data-edit="${g.id}">✏️ עריכה</button><button class="btn" data-link="${g.id}">🔗 קישור</button><button class="btn" data-dup="${g.id}">⧉ שכפול</button><button class="btn danger" data-del="${g.id}">🗑</button>`:''}</div>
         <div class="linkbox" id="lb-${g.id}" hidden></div></div></article>`}).join('')}</div>`;
   const foot='';
   main.innerHTML=head+body+foot;
@@ -459,13 +461,16 @@ function createGame(){
   if(MODE==='web'){g._local=true;games.unshift(g);localSave();go('#edit-'+g.id);return}
   games.unshift(g);dirty=true;go('#edit-'+g.id);showSaveBar();
 }
+const locked=id=>MODE==='web'&&PUBLIC_IDS.has(id);
 function dupGame(id){
+  if(locked(id))return;
   const i=games.findIndex(x=>x.id===id);if(i<0)return;
   const c=structuredClone(games[i]);c.id=newId();c.title=(c.title||'משחק')+' (עותק)';c.updatedAt=Date.now();
   if(MODE==='web'){c._local=true;games.splice(i+1,0,c);localSave();renderLibrary();return}
   games.splice(i+1,0,c);markDirty();renderLibrary();
 }
 function delGame(id,btn){
+  if(locked(id))return;
   if(!btn.classList.contains('on')){btn.classList.add('on');btn.textContent='למחוק? כן';setTimeout(()=>{if(btn.isConnected){btn.classList.remove('on');btn.textContent='🗑'}},3500);return}
   const i=games.findIndex(x=>x.id===id);if(i>=0)games.splice(i,1);
   if(MODE==='web'){if(PUBLIC_IDS.has(id)&&!HIDDEN.includes(id))HIDDEN.push(id);localSave();renderLibrary();return}
